@@ -1,0 +1,12 @@
+Struktur for htb algo:
+
+- Lese inn trajectories fra? (CSV?)
+- Trajectories er lest inn: Gjør analyse for å lage reference trajectories
+- Lagre reference trajectories til buffer
+- Lagre sekvenser (memory offsets kanskje?) til buffer, (Lagre de komprimerte trajectoriene).
+
+
+1. Lag en enkel csv fil med noen trajectories
+2. Les inn trajectories til Rust struktur
+3. Lagre annenhver trajectory som reference trajectory
+4. 	
