@@ -8,5 +8,5 @@ Struktur for htb algo:
 
 1. Lag en enkel csv fil med noen trajectories
 2. Les inn trajectories til Rust struktur
-3. Lagre annenhver trajectory som reference trajectory
+3. Lagre annenhver trajectory som reference trajectory i flatbuffer!
 4. 	

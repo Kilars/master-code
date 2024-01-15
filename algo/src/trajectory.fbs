@@ -1,0 +1,10 @@
+struct Point {
+  lat:float;
+  lng:float;
+}
+table Trajectory {
+  id:string;
+  polyline:[Point];
+}
+
+root_type Trajectory;
