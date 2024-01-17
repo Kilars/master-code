@@ -3,6 +3,13 @@ use serde::Deserialize;
 use serde::de::{self, Deserializer, Visitor};
 use std::fmt;
 
+extern crate flatbuffers;
+
+#[allow(dead_code, unused_imports)]
+#[path = "../generated/trajectory_generated.rs"]
+mod trajectory_generated;
+pub use trajectory_generated::trajectory::{Trajectory as FbTrajectory, TrajectoryArgs as FbTrajectoryArgs, Point as FbPoint};
+
 struct Point {
     lat: f32,
     lng: f32,
@@ -75,10 +82,20 @@ fn main() {
         Ok(csv_trajectories) => {
             for csv_traj in csv_trajectories {
                 let traj = csv_traj.to_trajectory();
-                println!("Trajectory id: {}", traj.id);
+
+                let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
+                let mut points = Vec::new();
                 for point in traj.polyline {
-                    println!("Point: {}, {}", point.lat, point.lng);
+                    points.push(FbPoint::new(point.lat, point.lng));
                 }
+
+                let flatbuffer_trajectory = FbTrajectory::create(&mut builder, &FbTrajectoryArgs {
+                    id: Some(builder.create_string(&traj.id)),
+                    polyline: Some(builder.create_vector(&points)),
+                });
+
+            //    builder.finish(flatbuffer_trajectory, None);
+            //    perhaps? Try this, but read the flippin docs
             }
         }
         Err(err) => println!("Error reading file, {err}"),

@@ -1,3 +1,5 @@
+namespace Trajectory;
+
 struct Point {
   lat:float;
   lng:float;

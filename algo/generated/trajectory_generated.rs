@@ -9,6 +9,15 @@ use core::cmp::Ordering;
 extern crate flatbuffers;
 use self::flatbuffers::{EndianScalar, Follow};
 
+#[allow(unused_imports, dead_code)]
+pub mod trajectory {
+
+  use core::mem;
+  use core::cmp::Ordering;
+
+  extern crate flatbuffers;
+  use self::flatbuffers::{EndianScalar, Follow};
+
 // struct Point, aligned to 4
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
@@ -318,3 +327,5 @@ pub fn finish_trajectory_buffer<'a, 'b>(
 pub fn finish_size_prefixed_trajectory_buffer<'a, 'b>(fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>, root: flatbuffers::WIPOffset<Trajectory<'a>>) {
   fbb.finish_size_prefixed(root, None);
 }
+}  // pub mod Trajectory
+
