@@ -89,13 +89,16 @@ fn main() {
                     points.push(FbPoint::new(point.lat, point.lng));
                 }
 
+                let id = builder.create_string(&traj.id);
+                let polyline = builder.create_vector(&points);
+
                 let flatbuffer_trajectory = FbTrajectory::create(&mut builder, &FbTrajectoryArgs {
-                    id: Some(builder.create_string(&traj.id)),
-                    polyline: Some(builder.create_vector(&points)),
+                    id: Some(id),
+                    polyline: Some(polyline),
                 });
 
-            //    builder.finish(flatbuffer_trajectory, None);
-            //    perhaps? Try this, but read the flippin docs
+                builder.finish(flatbuffer_trajectory, None);
+                let _buf = builder.finished_data();
             }
         }
         Err(err) => println!("Error reading file, {err}"),
