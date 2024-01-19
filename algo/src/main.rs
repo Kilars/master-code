@@ -1,23 +1,13 @@
-use std::{fs::File};
-use serde::Deserialize;
+use itertools::Itertools;
 use serde::de::{self, Deserializer, Visitor};
+use serde::Deserialize;
 use std::fmt;
-
-extern crate flatbuffers;
 
 #[allow(dead_code, unused_imports)]
 #[path = "../generated/trajectory_generated.rs"]
 mod trajectory_generated;
-pub use trajectory_generated::trajectory::{Trajectory as FbTrajectory, TrajectoryArgs as FbTrajectoryArgs, Point as FbPoint};
+use trajectory_generated::trajectory::{Point, Trajectory, TrajectoryArgs};
 
-struct Point {
-    lat: f32,
-    lng: f32,
-}
-struct Trajectory {
-    id: String,
-    polyline: Vec<Point>,
-}
 #[derive(Deserialize)]
 struct CsvTrajectory {
     id: String,
@@ -49,58 +39,34 @@ where
 
     deserializer.deserialize_str(PolylineVisitor)
 }
-impl CsvTrajectory {
-    fn to_trajectory(self) -> Trajectory {
-        Trajectory {
-            id: self.id,
-            polyline: self.polyline.into_iter().map(|point| Point {
-                lat: point[0],
-                lng: point[1],
-            }).collect(),
-        }
-    }
-}
 
-fn read_csv() -> Result<Vec<CsvTrajectory>, csv::Error> {
-    let file = File::open("./sample.csv");
-    let mut trajectories = Vec::new();
-    match file {
-        Ok(reader) => {
-            let mut csv_reader = csv::Reader::from_reader(reader);
-            for record in csv_reader.deserialize() {
-                let record: CsvTrajectory = record?;
-                trajectories.push(record);
-            }
-        }
-        Err(err) => println!("Error reading file, {err}"),
-    }
-    Ok(trajectories)
-}
+fn main() -> Result<(), csv::Error> {
+    let csv_trajectories: Vec<CsvTrajectory> = csv::Reader::from_path("sample.csv")?
+        .deserialize::<CsvTrajectory>()
+        .try_collect()?;
 
-fn main() {
-    match read_csv() {
-        Ok(csv_trajectories) => {
-            for csv_traj in csv_trajectories {
-                let traj = csv_traj.to_trajectory();
+    let buffers: Vec<_> = csv_trajectories
+        .into_iter()
+        .map(|csv_trajectory| {
+            let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
 
-                let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-                let mut points = Vec::new();
-                for point in traj.polyline {
-                    points.push(FbPoint::new(point.lat, point.lng));
-                }
+            let points: Vec<_> = csv_trajectory
+                .polyline
+                .into_iter()
+                .map(|[lat, lng]| Point::new(lat, lng))
+                .collect();
 
-                let id = builder.create_string(&traj.id);
-                let polyline = builder.create_vector(&points);
+            let args = TrajectoryArgs {
+                id: Some(builder.create_string(&csv_trajectory.id)),
+                polyline: Some(builder.create_vector(&points)),
+            };
 
-                let flatbuffer_trajectory = FbTrajectory::create(&mut builder, &FbTrajectoryArgs {
-                    id: Some(id),
-                    polyline: Some(polyline),
-                });
+            let trajectory = Trajectory::create(&mut builder, &args);
 
-                builder.finish(flatbuffer_trajectory, None);
-                let _buf = builder.finished_data();
-            }
-        }
-        Err(err) => println!("Error reading file, {err}"),
-    }
+            builder.finish(trajectory, None);
+            builder.finished_data().to_vec()
+        })
+        .collect();
+
+    Ok(())
 }
