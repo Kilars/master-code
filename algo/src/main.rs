@@ -1,7 +1,5 @@
 use itertools::Itertools;
-use serde::de::{self, Deserializer, Visitor};
-use serde::Deserialize;
-use std::fmt;
+use serde::{de, Deserialize};
 
 #[allow(dead_code, unused_imports)]
 #[path = "../generated/trajectory_generated.rs"]
@@ -11,33 +9,14 @@ use trajectory_generated::trajectory::{Point, Trajectory, TrajectoryArgs};
 #[derive(Deserialize)]
 struct CsvTrajectory {
     id: String,
-    #[serde(deserialize_with = "deserialize_polyline")]
+    #[serde(deserialize_with = "deserialize_json_string")]
     polyline: Vec<[f32; 2]>,
 }
 
-fn deserialize_polyline<'de, D>(deserializer: D) -> Result<Vec<[f32; 2]>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    struct PolylineVisitor;
-
-    impl<'de> Visitor<'de> for PolylineVisitor {
-        type Value = Vec<[f32; 2]>;
-
-        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-            formatter.write_str("a string representing a polyline")
-        }
-
-        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-        where
-            E: de::Error,
-        {
-            let polyline: Vec<[f32; 2]> = serde_json::from_str(value).map_err(de::Error::custom)?;
-            Ok(polyline)
-        }
-    }
-
-    deserializer.deserialize_str(PolylineVisitor)
+fn deserialize_json_string<'de, T: Deserialize<'de>, D: de::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<T, D::Error> {
+    serde_json::from_str(Deserialize::deserialize(deserializer)?).map_err(de::Error::custom)
 }
 
 fn main() -> Result<(), csv::Error> {
