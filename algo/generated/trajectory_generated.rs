@@ -256,75 +256,172 @@ impl core::fmt::Debug for Trajectory<'_> {
       ds.finish()
   }
 }
+pub enum TrajectoriesOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Trajectories<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for Trajectories<'a> {
+  type Inner = Trajectories<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> Trajectories<'a> {
+  pub const VT_TRAJECTORIES: flatbuffers::VOffsetT = 4;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    Trajectories { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    args: &'args TrajectoriesArgs<'args>
+  ) -> flatbuffers::WIPOffset<Trajectories<'bldr>> {
+    let mut builder = TrajectoriesBuilder::new(_fbb);
+    if let Some(x) = args.trajectories { builder.add_trajectories(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn trajectories(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<Trajectory<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<Trajectory>>>>(Trajectories::VT_TRAJECTORIES, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for Trajectories<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<Trajectory>>>>("trajectories", Self::VT_TRAJECTORIES, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TrajectoriesArgs<'a> {
+    pub trajectories: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<Trajectory<'a>>>>>,
+}
+impl<'a> Default for TrajectoriesArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TrajectoriesArgs {
+      trajectories: None,
+    }
+  }
+}
+
+pub struct TrajectoriesBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> TrajectoriesBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_trajectories(&mut self, trajectories: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<Trajectory<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(Trajectories::VT_TRAJECTORIES, trajectories);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TrajectoriesBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    TrajectoriesBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<Trajectories<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for Trajectories<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("Trajectories");
+      ds.field("trajectories", &self.trajectories());
+      ds.finish()
+  }
+}
 #[inline]
-/// Verifies that a buffer of bytes contains a `Trajectory`
+/// Verifies that a buffer of bytes contains a `Trajectories`
 /// and returns it.
 /// Note that verification is still experimental and may not
 /// catch every error, or be maximally performant. For the
 /// previous, unchecked, behavior use
-/// `root_as_trajectory_unchecked`.
-pub fn root_as_trajectory(buf: &[u8]) -> Result<Trajectory, flatbuffers::InvalidFlatbuffer> {
-  flatbuffers::root::<Trajectory>(buf)
+/// `root_as_trajectories_unchecked`.
+pub fn root_as_trajectories(buf: &[u8]) -> Result<Trajectories, flatbuffers::InvalidFlatbuffer> {
+  flatbuffers::root::<Trajectories>(buf)
 }
 #[inline]
 /// Verifies that a buffer of bytes contains a size prefixed
-/// `Trajectory` and returns it.
+/// `Trajectories` and returns it.
 /// Note that verification is still experimental and may not
 /// catch every error, or be maximally performant. For the
 /// previous, unchecked, behavior use
-/// `size_prefixed_root_as_trajectory_unchecked`.
-pub fn size_prefixed_root_as_trajectory(buf: &[u8]) -> Result<Trajectory, flatbuffers::InvalidFlatbuffer> {
-  flatbuffers::size_prefixed_root::<Trajectory>(buf)
+/// `size_prefixed_root_as_trajectories_unchecked`.
+pub fn size_prefixed_root_as_trajectories(buf: &[u8]) -> Result<Trajectories, flatbuffers::InvalidFlatbuffer> {
+  flatbuffers::size_prefixed_root::<Trajectories>(buf)
 }
 #[inline]
 /// Verifies, with the given options, that a buffer of bytes
-/// contains a `Trajectory` and returns it.
+/// contains a `Trajectories` and returns it.
 /// Note that verification is still experimental and may not
 /// catch every error, or be maximally performant. For the
 /// previous, unchecked, behavior use
-/// `root_as_trajectory_unchecked`.
-pub fn root_as_trajectory_with_opts<'b, 'o>(
+/// `root_as_trajectories_unchecked`.
+pub fn root_as_trajectories_with_opts<'b, 'o>(
   opts: &'o flatbuffers::VerifierOptions,
   buf: &'b [u8],
-) -> Result<Trajectory<'b>, flatbuffers::InvalidFlatbuffer> {
-  flatbuffers::root_with_opts::<Trajectory<'b>>(opts, buf)
+) -> Result<Trajectories<'b>, flatbuffers::InvalidFlatbuffer> {
+  flatbuffers::root_with_opts::<Trajectories<'b>>(opts, buf)
 }
 #[inline]
 /// Verifies, with the given verifier options, that a buffer of
-/// bytes contains a size prefixed `Trajectory` and returns
+/// bytes contains a size prefixed `Trajectories` and returns
 /// it. Note that verification is still experimental and may not
 /// catch every error, or be maximally performant. For the
 /// previous, unchecked, behavior use
-/// `root_as_trajectory_unchecked`.
-pub fn size_prefixed_root_as_trajectory_with_opts<'b, 'o>(
+/// `root_as_trajectories_unchecked`.
+pub fn size_prefixed_root_as_trajectories_with_opts<'b, 'o>(
   opts: &'o flatbuffers::VerifierOptions,
   buf: &'b [u8],
-) -> Result<Trajectory<'b>, flatbuffers::InvalidFlatbuffer> {
-  flatbuffers::size_prefixed_root_with_opts::<Trajectory<'b>>(opts, buf)
+) -> Result<Trajectories<'b>, flatbuffers::InvalidFlatbuffer> {
+  flatbuffers::size_prefixed_root_with_opts::<Trajectories<'b>>(opts, buf)
 }
 #[inline]
-/// Assumes, without verification, that a buffer of bytes contains a Trajectory and returns it.
+/// Assumes, without verification, that a buffer of bytes contains a Trajectories and returns it.
 /// # Safety
-/// Callers must trust the given bytes do indeed contain a valid `Trajectory`.
-pub unsafe fn root_as_trajectory_unchecked(buf: &[u8]) -> Trajectory {
-  flatbuffers::root_unchecked::<Trajectory>(buf)
+/// Callers must trust the given bytes do indeed contain a valid `Trajectories`.
+pub unsafe fn root_as_trajectories_unchecked(buf: &[u8]) -> Trajectories {
+  flatbuffers::root_unchecked::<Trajectories>(buf)
 }
 #[inline]
-/// Assumes, without verification, that a buffer of bytes contains a size prefixed Trajectory and returns it.
+/// Assumes, without verification, that a buffer of bytes contains a size prefixed Trajectories and returns it.
 /// # Safety
-/// Callers must trust the given bytes do indeed contain a valid size prefixed `Trajectory`.
-pub unsafe fn size_prefixed_root_as_trajectory_unchecked(buf: &[u8]) -> Trajectory {
-  flatbuffers::size_prefixed_root_unchecked::<Trajectory>(buf)
+/// Callers must trust the given bytes do indeed contain a valid size prefixed `Trajectories`.
+pub unsafe fn size_prefixed_root_as_trajectories_unchecked(buf: &[u8]) -> Trajectories {
+  flatbuffers::size_prefixed_root_unchecked::<Trajectories>(buf)
 }
 #[inline]
-pub fn finish_trajectory_buffer<'a, 'b>(
+pub fn finish_trajectories_buffer<'a, 'b>(
     fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-    root: flatbuffers::WIPOffset<Trajectory<'a>>) {
+    root: flatbuffers::WIPOffset<Trajectories<'a>>) {
   fbb.finish(root, None);
 }
 
 #[inline]
-pub fn finish_size_prefixed_trajectory_buffer<'a, 'b>(fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>, root: flatbuffers::WIPOffset<Trajectory<'a>>) {
+pub fn finish_size_prefixed_trajectories_buffer<'a, 'b>(fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>, root: flatbuffers::WIPOffset<Trajectories<'a>>) {
   fbb.finish_size_prefixed(root, None);
 }
 }  // pub mod Trajectory

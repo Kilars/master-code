@@ -1,10 +1,11 @@
 use itertools::Itertools;
 use serde::{de, Deserialize};
+use std::fs::File;
 
 #[allow(dead_code, unused_imports)]
 #[path = "../generated/trajectory_generated.rs"]
 mod trajectory_generated;
-use trajectory_generated::trajectory::{Point, Trajectory, TrajectoryArgs};
+use trajectory_generated::trajectory::{Point, Trajectory, TrajectoryArgs, Trajectories, TrajectoriesArgs};
 
 #[derive(Deserialize)]
 struct CsvTrajectory {
@@ -24,11 +25,10 @@ fn main() -> Result<(), csv::Error> {
         .deserialize::<CsvTrajectory>()
         .try_collect()?;
 
+    let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
     let buffers: Vec<_> = csv_trajectories
         .into_iter()
         .map(|csv_trajectory| {
-            let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-
             let points: Vec<_> = csv_trajectory
                 .polyline
                 .into_iter()
@@ -40,12 +40,14 @@ fn main() -> Result<(), csv::Error> {
                 polyline: Some(builder.create_vector(&points)),
             };
 
-            let trajectory = Trajectory::create(&mut builder, &args);
-
-            builder.finish(trajectory, None);
-            builder.finished_data().to_vec()
+            Trajectory::create(&mut builder, &args)
         })
         .collect();
+    let paths = Some(builder.create_vector(&buffers));
+    let trajectories = Trajectories::create(&mut builder, &TrajectoriesArgs {
+        trajectories: paths,
+    });
 
+    builder.finish(trajectories, None);
     Ok(())
 }

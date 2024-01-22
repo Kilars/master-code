@@ -8,5 +8,8 @@ table Trajectory {
   id:string;
   polyline:[Point];
 }
+table Trajectories {
+  trajectories: [Trajectory];
+}
 
-root_type Trajectory;
+root_type Trajectories;

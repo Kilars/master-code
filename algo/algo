@@ -26,3 +26,4 @@ Hvis man gjøre dette uten å noen gang ha alle stiene lastet noe sted vil det f
 Likevel må et visst sett av stiene lagres til slutt, dette kan være veldig mange feks: 1 million.
 
 Mange av svarene ligger nok i hva flatgeobuf gjør.
+Ikke så tydelig
