@@ -1,12 +1,28 @@
 Struktur for htb algo:
 
 - Lese inn trajectories fra? (CSV?)
-- Trajectories er lest inn: Gjør analyse for å lage reference trajectories
+2. (analyse) Trajectories er lest inn: Gjør analyse for å lage reference trajectories
 - Lagre reference trajectories til buffer
 - Lagre sekvenser (memory offsets kanskje?) til buffer, (Lagre de komprimerte trajectoriene).
 
 
-1. Lag en enkel csv fil med noen trajectories
-2. Les inn trajectories til Rust struktur
-3. Lagre annenhver trajectory som reference trajectory i flatbuffer!
-4. 	
+Spørsmål så langt:
+
+Når skal hva lagres til fil?
+  Sluttresultat skal ihvertfall lagres til fil.
+    Referanse sett og ID map.
+  Skal analysen gjøres? i rust minne, eller fra flatbuffers (fil).
+
+Avhengig av hvor mye av stiene som kreves samtidig i minne bestemmer flatbuffer/rust.
+  -Ville tro de ikke trenger alt samtidig, det er jo veldig krevende. (Altså at begge løsninger vil fungere men fbs er mest effektiv)
+
+Hvor lang tid tar det å kjøre? Samplesize atm er rundt 30 trajectories. imens hele datasettet er på 21 millioner.
+
+Filstruktur: 21millioner filer med en trajectory hver, eller 1 fil med en vektor av 21 millioner trajectories?
+  Svaret er vel åpenbart (vektor), men en vektor med 21 millioner elementer høres ikke veldig appellerende ut heller. Dette kan ihvertfall ikke opprettholdes i rust runtime og må evt være en fil.
+
+Hvis man gjøre dette uten å noen gang ha alle stiene lastet noe sted vil det forenkle prosessen.
+
+Likevel må et visst sett av stiene lagres til slutt, dette kan være veldig mange feks: 1 million.
+
+Mange av svarene ligger nok i hva flatgeobuf gjør.
