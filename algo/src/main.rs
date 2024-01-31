@@ -6,7 +6,12 @@ use std::fs::File;
 struct CsvTrajectory {
     id: String,
     #[serde(deserialize_with = "deserialize_json_string")]
-    polyline: Vec<[f32; 2]>,
+    polyline: Vec<(f32, f32)>,
+}
+#[derive(Clone)]
+struct Point {
+    lat: f32,
+    lng: f32,
 }
 
 fn deserialize_json_string<'de, T: Deserialize<'de>, D: de::Deserializer<'de>>(
@@ -18,24 +23,37 @@ fn deserialize_json_string<'de, T: Deserialize<'de>, D: de::Deserializer<'de>>(
 // MAXDWT Dynamic programming
 // Dnn is the total cost. T(p, q) is a subtrajectory of T from index p to q. We are comparing
 // trajectories. Dnn is total but we are getting max
-fn max_dtw(a: Option<&Vec<[f32; 2]>>, b: Option<&Vec<[f32; 2]>>) -> f32 {
-    match (&a, &b) {
-        (None, None) => 0.0,
-        (None, _) => f32::INFINITY,
-        (_, None) => f32::INFINITY,
-        (Some(a_vec), Some(b_vec)) => {
-            distance(a_vec.last(), b_vec.last()).max(q(a_vec.last(), b_vec.last()))
-        }
+fn max_dtw(a: &[Point], b: &[Point]) -> f32 {
+    match (a, b) {
+        ([], []) => 0.0,
+        ([.., pa], [.., pb]) => pa.distance(pb).max(q(a, b)),
+        _ => f32::INFINITY,
     }
 }
 //Need other (Haversine) distance function for lat lng, but this will do as a placeholder
-fn distance(a: Option<&[f32; 2]>, b: Option<&[f32; 2]>) -> f32 {
-    let dx = b[0] - a[0];
-    let dy = b[1] - a[1];
-    (dx.powi(2) + dy.powi(2)).sqrt()
+impl Point {
+    fn distance(&self, other: &Point) -> f32 {
+        let dx = self.lat - other.lat;
+        let dy = self.lng - other.lng;
+        (dx.powi(2) + dy.powi(2)).sqrt()
+    }
 }
-fn q(a_vec: Option<&[f32; 2]>, b_vec: Option<&[f32; 2]>) -> f32 {
-    max_dtw(a_vec, b_vec).max(max_dtw(a_vec, b_vec))
+
+fn q(a: &[Point], b: &[Point]) -> f32 {
+    let a_slice = if a.is_empty() {
+        &[]
+    } else {
+        &a[0..a.len() - 1]
+    };
+    let b_slice = if b.is_empty() {
+        &[]
+    } else {
+        &b[0..b.len() - 1]
+    };
+
+    max_dtw(a_slice, b_slice)
+        .min(max_dtw(a_slice, &b))
+        .min(max_dtw(&a, b_slice))
 }
 // MRT set - add all non redundant trajectories
 
