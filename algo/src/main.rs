@@ -1,6 +1,5 @@
 use itertools::Itertools;
 use serde::{de, Deserialize};
-use std::fs::File;
 
 #[derive(Deserialize)]
 struct CsvTrajectory {
@@ -39,21 +38,17 @@ impl Point {
     }
 }
 
-fn q(a: &[Point], b: &[Point]) -> f32 {
-    let a_slice = if a.is_empty() {
-        &[]
-    } else {
-        &a[0..a.len() - 1]
-    };
-    let b_slice = if b.is_empty() {
-        &[]
-    } else {
-        &b[0..b.len() - 1]
-    };
+fn except_last(s: &[Point]) -> &[Point] {
+    match s.split_last() {
+        Some((_last, rest)) => rest,
+        None => &[],
+    }
+}
 
-    max_dtw(a_slice, b_slice)
-        .min(max_dtw(a_slice, &b))
-        .min(max_dtw(&a, b_slice))
+fn q(a: &[Point], b: &[Point]) -> f32 {
+    max_dtw(except_last(a), except_last(b))
+        .min(max_dtw(except_last(a), &b))
+        .min(max_dtw(&a, except_last(b)))
 }
 // MRT set - add all non redundant trajectories
 
