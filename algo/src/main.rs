@@ -39,9 +39,9 @@ impl Point {
 }
 
 fn except_last(s: &[Point]) -> &[Point] {
-    match s.split_last() {
-        Some((_last, rest)) => rest,
-        None => &[],
+    match s {
+        [not_last @ .., _] => not_last,
+        _ => &[],
     }
 }
 
