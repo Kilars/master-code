@@ -12,22 +12,10 @@ struct Point {
     lat: f32,
     lng: f32,
 }
-
-fn deserialize_json_string<'de, T: Deserialize<'de>, D: de::Deserializer<'de>>(
-    deserializer: D,
-) -> Result<T, D::Error> {
-    serde_json::from_str(Deserialize::deserialize(deserializer)?).map_err(de::Error::custom)
-}
-
-// MAXDWT Dynamic programming
-// Dnn is the total cost. T(p, q) is a subtrajectory of T from index p to q. We are comparing
-// trajectories. Dnn is total but we are getting max
-fn max_dtw(a: &[Point], b: &[Point]) -> f32 {
-    match (a, b) {
-        ([], []) => 0.0,
-        ([.., pa], [.., pb]) => pa.distance(pb).max(q(a, b)),
-        _ => f32::INFINITY,
-    }
+#[derive(Clone)]
+struct Trajectory {
+    id: String,
+    polyline: Vec<Point>,
 }
 //Need other (Haversine) distance function for lat lng, but this will do as a placeholder
 impl Point {
@@ -38,6 +26,20 @@ impl Point {
     }
 }
 
+fn deserialize_json_string<'de, T: Deserialize<'de>, D: de::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<T, D::Error> {
+    serde_json::from_str(Deserialize::deserialize(deserializer)?).map_err(de::Error::custom)
+}
+
+fn max_dtw(ta: &[Point], tb: &[Point]) -> f32 {
+    match (ta, tb) {
+        ([], []) => 0.0,
+        ([.., a], [.., b]) => a.distance(b).max(q(ta, tb)),
+        _ => f32::INFINITY,
+    }
+}
+
 fn except_last(s: &[Point]) -> &[Point] {
     match s {
         [not_last @ .., _] => not_last,
@@ -45,17 +47,52 @@ fn except_last(s: &[Point]) -> &[Point] {
     }
 }
 
-fn q(a: &[Point], b: &[Point]) -> f32 {
-    max_dtw(except_last(a), except_last(b))
-        .min(max_dtw(except_last(a), &b))
-        .min(max_dtw(&a, except_last(b)))
+fn q(ta: &[Point], tb: &[Point]) -> f32 {
+    max_dtw(except_last(&ta), except_last(tb))
+        .min(max_dtw(except_last(ta), &tb))
+        .min(max_dtw(&ta, except_last(tb)))
+}
+fn increment_until_failure(
+    t: &[Point],
+    rts: Vec<&[Point]>,
+    err: f32,
+    start: usize,
+    end: usize,
+) -> usize {
+    //pickup on i--i+2
+    //need to ensure the list is long enough
+    for j in end..t.len() - end - 1 {
+        for rt in &rts {
+            if max_dtw(&t[start..j + 1], rt) > err {
+                return j - 1;
+            } else if j == t.len() - 1 {
+                return j;
+            }
+        }
+    }
+    end
 }
 // MRT set - add all non redundant trajectories
+fn mrt_search(t: &[Point], rts: Vec<&[Point]>, err: f32) -> Vec<Vec<Point>> {
+    let mut local_mrt: Vec<Vec<Point>> = Vec::new();
+    assert!(t.len() >= 2);
+    for i in 0..t.len() - 2 {
+        for rt in &rts {
+            if max_dtw(&t[i..i + 1], rt) < err {
+                let end = increment_until_failure(t, rts.clone(), err, i, i + 1);
+                local_mrt.push(t[i..end].to_vec());
+                break;
+            }
+        }
+    }
+    local_mrt
+}
 
 fn main() -> Result<(), csv::Error> {
     let csv_trajectories: Vec<CsvTrajectory> = csv::Reader::from_path("sample.csv")?
         .deserialize::<CsvTrajectory>()
         .try_collect()?;
+    let mut reference_trajectories: Vec<Trajectory> = Vec::new();
 
     Ok(())
 }
