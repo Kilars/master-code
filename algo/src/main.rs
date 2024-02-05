@@ -1,5 +1,6 @@
 use itertools::Itertools;
 use serde::{de, Deserialize};
+use std::collections::HashSet;
 
 #[derive(Deserialize)]
 struct CsvTrajectory {
@@ -7,12 +8,12 @@ struct CsvTrajectory {
     #[serde(deserialize_with = "deserialize_json_string")]
     polyline: Vec<(f32, f32)>,
 }
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 struct Point {
     lat: f32,
     lng: f32,
 }
-#[derive(Clone)]
+#[derive(Clone, Eq, Hash, PartialEq)]
 struct Trajectory {
     id: String,
     polyline: Vec<Point>,
@@ -59,7 +60,6 @@ fn increment_until_failure(
     start: usize,
     end: usize,
 ) -> usize {
-    //pickup on i--i+2
     //need to ensure the list is long enough
     for j in end..t.len() - end - 1 {
         for rt in &rts {
@@ -73,19 +73,45 @@ fn increment_until_failure(
     end
 }
 // MRT set - add all non redundant trajectories
-fn mrt_search(t: &[Point], rts: Vec<&[Point]>, err: f32) -> Vec<Vec<Point>> {
-    let mut local_mrt: Vec<Vec<Point>> = Vec::new();
-    assert!(t.len() >= 2);
+//fn mrt_search(t: &[Point], rts: Vec<&[Point]>, err: f32) -> Vec<Vec<Point>> {
+//    let mut local_mrt: Vec<Vec<Point>> = Vec::new();
+//    assert!(t.len() >= 2);
+//    for i in 0..t.len() - 2 {
+//        for rt in &rts {
+//            if max_dtw(&t[i..i + 1], rt) < err {
+//                let end = increment_until_failure(t, rts.clone(), err, i, i + 1);
+//                local_mrt.push(t[i..end].to_vec());
+//                break;
+//            }
+//        }
+//    }
+//    local_mrt
+//}
+
+fn mrt_search(t: &[Point], rts: HashSet<&[Point]>, err: f32) -> Vec<Vec<Point>> {
+    let mut m: HashSet<Trajectory> = HashSet::new();
     for i in 0..t.len() - 2 {
+        let st = t[i..i + 1].to_vec();
         for rt in &rts {
-            if max_dtw(&t[i..i + 1], rt) < err {
-                let end = increment_until_failure(t, rts.clone(), err, i, i + 1);
-                local_mrt.push(t[i..end].to_vec());
-                break;
+            for i in 0..rt.len() - 2 {
+                if max_dtw(&st, &rt[i..i + 1]) < err {}
             }
         }
+        // m(t[i..i+1])<-MRT set for segment t[i..i+1]
     }
-    local_mrt
+    todo!()
+}
+
+fn compression_ratio(t: &[Point], rts: HashSet<&[Point]>, spatial_deviation: f32) -> f32 {
+    todo!()
+}
+fn create_rts(trajectories: Vec<Trajectory>, min_comp_ratio: f32) {
+    let mut rts: HashSet<&[Point]> = HashSet::new();
+    trajectories.iter().for_each(|t| {
+        if compression_ratio(&t.polyline, rts, 100.0) >= min_comp_ratio {
+            rts.insert(&t.polyline);
+        }
+    });
 }
 
 fn main() -> Result<(), csv::Error> {
