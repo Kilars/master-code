@@ -1,6 +1,16 @@
 use crate::max_dtw::max_dtw;
 use std::collections::{HashMap, HashSet};
 
+pub type TrajectoryReference<'a> = &'a [TwoPrecisionFixedPointPoint];
+
+impl From<(f32, f32)> for TwoPrecisionFixedPointPoint {
+    fn from(value: (f32, f32)) -> TwoPrecisionFixedPointPoint {
+        TwoPrecisionFixedPointPoint {
+            lat: (value.0 * 100.0) as i32,
+            lng: (value.1 * 100.0) as i32,
+        }
+    }
+}
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct TwoPrecisionFixedPointPoint {
     pub lat: i32,
@@ -15,20 +25,20 @@ impl TwoPrecisionFixedPointPoint {
 }
 
 pub fn mrt_search<'a>(
-    trajectory: &'a [TwoPrecisionFixedPointPoint],
-    reference_set: HashSet<&'a [TwoPrecisionFixedPointPoint]>,
+    trajectory: &'a TrajectoryReference,
+    reference_set: HashSet<&'a TrajectoryReference>,
     spatial_deviation: i32,
     // I want the return type to be reference to polyline(inside hashset), but something about not knowing size at
     // compile time
 ) -> HashMap<(usize, usize), HashSet<&'a [TwoPrecisionFixedPointPoint]>> {
     //index (0,1): { MRTs }
-    let mut trajectory_mrt_dict: HashMap<(usize, usize), HashSet<&[TwoPrecisionFixedPointPoint]>> =
+    let mut trajectory_mrt_dict: HashMap<(usize, usize), HashSet<TrajectoryReference>> =
         HashMap::new();
 
     // Initialize lenght two subtrajectory MRTs
     for i in 0..trajectory.len() - 2 {
-        let mut local_hash_set: HashSet<&[TwoPrecisionFixedPointPoint]> = HashSet::new();
-        for rt in reference_set.iter() {
+        let mut local_hash_set: HashSet<TrajectoryReference> = HashSet::new();
+        for rt in reference_set {
             for j in 0..rt.len() - 2 {
                 if max_dtw(&trajectory[i..i + 1], &rt[j..j + 1]) < spatial_deviation {
                     local_hash_set.insert(&rt[j..j + 1]);
@@ -44,7 +54,7 @@ pub fn mrt_search<'a>(
             let subtrajectory = &trajectory[i..i + length];
             let rtas = trajectory_mrt_dict.get(&(i, i + length - 1));
             let rtbs = trajectory_mrt_dict.get(&(i + length - 1, i + length));
-            let mut local_hash_set: HashSet<&[TwoPrecisionFixedPointPoint]> = HashSet::new();
+            let mut local_hash_set: HashSet<TrajectoryReference> = HashSet::new();
             // match, length 3 subtrajectories into sub,last
             match (rtas, rtbs) {
                 (Some(rtas), Some(rtbs)) => {

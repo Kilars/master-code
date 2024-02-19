@@ -19,19 +19,20 @@ fn deserialize_json_string<'de, T: Deserialize<'de>, D: de::Deserializer<'de>>(
 }
 
 fn main() -> Result<(), csv::Error> {
-    let _csv_trajectories: Vec<CsvTrajectory> = csv::Reader::from_path("sample.csv")?
+    let csv_trajectories: Vec<CsvTrajectory> = csv::Reader::from_path("sample.csv")?
         .deserialize::<CsvTrajectory>()
         .try_collect()?;
-    let first_poly = [
-        TwoPrecisionFixedPointPoint {
-            lat: -3212,
-            lng: 3412,
-        },
-        TwoPrecisionFixedPointPoint {
-            lat: -3213,
-            lng: 3411,
-        },
-    ];
-    mrt_search(&first_poly, HashSet::new(), 200);
+
+    for traj in csv_trajectories {
+        mrt_search(
+            traj.polyline
+                .iter()
+                .map(|&t| t.into())
+                .collect::<Vec<_>>()
+                .as_slice(),
+            HashSet::new(),
+            200,
+        );
+    }
     Ok(())
 }
