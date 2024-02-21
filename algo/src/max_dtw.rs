@@ -1,4 +1,4 @@
-use crate::rest::TwoPrecisionFixedPointPoint as Point;
+use crate::rest::Point;
 
 pub fn max_dtw(ta: &[Point], tb: &[Point]) -> i32 {
     match (ta, tb) {

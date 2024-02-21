@@ -1,4 +1,3 @@
-use crate::rest::{mrt_search, TwoPrecisionFixedPointPoint};
 use itertools::Itertools;
 use serde::{de, Deserialize};
 use std::collections::HashSet;
@@ -23,16 +22,16 @@ fn main() -> Result<(), csv::Error> {
         .deserialize::<CsvTrajectory>()
         .try_collect()?;
 
-    for traj in csv_trajectories {
-        mrt_search(
-            traj.polyline
-                .iter()
-                .map(|&t| t.into())
-                .collect::<Vec<_>>()
-                .as_slice(),
-            HashSet::new(),
-            200,
-        );
-    }
+    //    for traj in csv_trajectories {
+    //        mrt_search(
+    //            traj.polyline
+    //                .iter()
+    //                .map(|&t| t.into())
+    //                .collect::<Vec<_>>()
+    //                .as_slice(),
+    //            HashSet::new(),
+    //            200,
+    //        );
+    //    }
     Ok(())
 }
