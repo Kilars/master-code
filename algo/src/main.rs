@@ -1,3 +1,4 @@
+use crate::rest::ReferenceSet;
 use itertools::Itertools;
 use serde::{de, Deserialize};
 use std::collections::HashSet;
@@ -6,7 +7,6 @@ pub mod rest;
 
 #[derive(Deserialize)]
 struct CsvTrajectory {
-    id: String,
     #[serde(deserialize_with = "deserialize_json_string")]
     polyline: Vec<(f32, f32)>,
 }
@@ -22,16 +22,19 @@ fn main() -> Result<(), csv::Error> {
         .deserialize::<CsvTrajectory>()
         .try_collect()?;
 
-    //    for traj in csv_trajectories {
-    //        mrt_search(
-    //            traj.polyline
-    //                .iter()
-    //                .map(|&t| t.into())
-    //                .collect::<Vec<_>>()
-    //                .as_slice(),
-    //            HashSet::new(),
-    //            200,
-    //        );
-    //    }
+    let mut mrt_set = ReferenceSet(HashSet::new());
+
+    // Generate reference set
+    for traj in csv_trajectories {
+        let t = traj
+            .polyline
+            .iter()
+            .map(|&pnt| pnt.into())
+            .collect::<Vec<_>>();
+        let (_encoded_t, compression_ratio) = mrt_set.encode(&t, 0.2);
+        if compression_ratio < 5.0 {
+            mrt_set.0.insert(t);
+        }
+    }
     Ok(())
 }
