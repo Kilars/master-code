@@ -123,8 +123,8 @@ impl ReferenceSet {
             let mut local_hash_set: HashSet<ReferenceSubTrajectory> = HashSet::new();
             for rt in self.0.iter() {
                 for j in 0..rt.len() - 1 {
-                    if max_dtw(&trajectory[i..i + 1], &rt[j..j + 1]) < spatial_deviation {
-                        local_hash_set.insert(ReferenceSubTrajectory(&rt[j..j + 1]));
+                    if max_dtw(&trajectory[i..=i + 1], &rt[j..=j + 1]) < spatial_deviation {
+                        local_hash_set.insert(ReferenceSubTrajectory(&rt[j..=j + 1]));
                     }
                 }
             }
@@ -134,26 +134,19 @@ impl ReferenceSet {
         }
 
         for length in 3..=trajectory.len() {
-            for i in 0..=trajectory.len() - length + 1 {
-                println!("0 ... {}", trajectory.len() - length + 1);
-                println!("i {}", i);
+            for i in 0..trajectory.len() - length + 1 {
                 let subtrajectory = &trajectory[i..i + length];
                 let a_length = length - 1;
                 let b_length = 2;
                 let a_index = (i, i + a_length - 1);
                 let b_index = (i + a_length, i + a_length + b_length - 1);
-                println!("a index range {}, {}", a_index.0, a_index.1);
-                println!("b index range {}, {}", b_index.0, b_index.1);
                 let rtas = trajectory_mrt_dict.0.get(&a_index);
                 let rtbs = trajectory_mrt_dict.0.get(&b_index);
                 let mut local_hash_set: HashSet<ReferenceSubTrajectory> = HashSet::new();
                 match (rtas, rtbs) {
                     (Some(rtas), Some(rtbs)) => {
-                        println!("matched rta");
                         for rta in rtas {
-                            println!("rta {:?}", rta.0.len());
                             for rtb in rtbs {
-                                println!("rtb {:?}", rtb.0.len());
                                 if max_dtw(subtrajectory, rta.0) < spatial_deviation {
                                     local_hash_set.insert(ReferenceSubTrajectory(rta.0));
                                 }
@@ -161,18 +154,19 @@ impl ReferenceSet {
                                     local_hash_set.insert(ReferenceSubTrajectory(rtb.0));
                                 }
                                 if &rta.0.last() == &rtb.0.first() {
-                                    println!("in here!!");
-                                    let rta_and_rtb = &rta.0[..rta.0.len() + 1]; // I actually just want to make a new
-                                                                                 // reference from the start of rta to the end of rtb
-                                                                                 // not do any real operation
-                                                                                 // would be lovely if I could assert that
-                                                                                 // rta and rtb were next to each other in memory
-                                    local_hash_set.insert(ReferenceSubTrajectory(rta_and_rtb));
+                                    unsafe {
+                                        local_hash_set.insert(ReferenceSubTrajectory(
+                                            std::slice::from_raw_parts(
+                                                rta.0.as_ptr(),
+                                                rta.0.len() + 1,
+                                            ),
+                                        ));
+                                    }
                                 }
                             }
                         }
                     }
-                    _ => break,
+                    _ => continue,
                 }
             }
         }
