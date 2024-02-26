@@ -58,7 +58,7 @@ impl ReferenceSet {
         &self,
         trajectory: &Vec<Point>,
         spatial_deviation: f64,
-    ) -> (EncodedTrajectory, f32) {
+    ) -> (EncodedTrajectory, f64) {
         let mrt_map = self.get_subtrajectory_references(&trajectory, spatial_deviation);
         let length = trajectory.len();
         let mut references = 0;
@@ -75,7 +75,7 @@ impl ReferenceSet {
                 .and_then(|mrt_set| mrt_set.iter().next())
             {
                 Some(next_mrt) => {
-                    last_indexed_point = last_indexed_point + 1;
+                    last_indexed_point += 1;
                     longest_mrt = Some(ReferenceSubTrajectory(next_mrt.0));
                 }
                 None => {
@@ -83,11 +83,12 @@ impl ReferenceSet {
                         encoded_trajectory
                             .0
                             .push(SubTrajectory::Reference(longest_mrt.0));
-                        first_point_not_indexed = last_indexed_point + 1;
+                        last_indexed_point += 1;
+                        first_point_not_indexed = last_indexed_point;
                         references += 1;
                     } else {
                         encoded_trajectory.0.push(SubTrajectory::Trajectory(
-                            trajectory[first_point_not_indexed..last_indexed_point + 1].to_vec(),
+                            trajectory[first_point_not_indexed..=last_indexed_point].to_vec(),
                         ));
                         first_point_not_indexed = last_indexed_point + 1;
                         last_indexed_point += 1;
@@ -101,12 +102,12 @@ impl ReferenceSet {
             direct_points += 1;
         }
         // i32 is 4 bytes
-        let point_size = 4;
+        let point_size = 4.0;
         // 8 byte reference
-        let reference_size = 8;
+        let reference_size = 8.0;
 
-        let compression_ratio = (length * point_size) as f32
-            / (direct_points * point_size + references * reference_size) as f32;
+        let compression_ratio = (length as f64 * point_size)
+            / ((direct_points as f64 * point_size) + (references as f64 * reference_size));
 
         (encoded_trajectory, compression_ratio)
     }
@@ -133,6 +134,10 @@ impl ReferenceSet {
             }
         }
 
+        //len 3,
+        //combine len 2 subtrajectories to len 3
+        //len 4,
+        //combine len 3 subtrajectories to len 4
         for length in 3..=trajectory.len() {
             for i in 0..trajectory.len() - length + 1 {
                 let subtrajectory = &trajectory[i..i + length];
@@ -149,6 +154,7 @@ impl ReferenceSet {
                             for rtb in rtbs {
                                 if max_dtw(subtrajectory, rta.0) < spatial_deviation {
                                     local_hash_set.insert(ReferenceSubTrajectory(rta.0));
+                                    break;
                                 }
                                 if max_dtw(subtrajectory, rtb.0) < spatial_deviation {
                                     local_hash_set.insert(ReferenceSubTrajectory(rtb.0));
@@ -162,9 +168,13 @@ impl ReferenceSet {
                                             ),
                                         ));
                                     }
+                                    break;
                                 }
                             }
                         }
+                        trajectory_mrt_dict
+                            .0
+                            .insert((i, i + length - 1), local_hash_set);
                     }
                     _ => continue,
                 }
