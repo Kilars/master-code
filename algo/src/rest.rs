@@ -45,7 +45,10 @@ enum SubTrajectory<'a> {
     Reference(&'a [Point]),
 }
 #[derive(PartialEq, Eq, Hash)]
-struct ReferenceSubTrajectory<'a>(&'a [Point]);
+struct ReferenceSubTrajectory<'a> {
+    slice: &'a [Point],
+    used_index: usize,
+}
 
 pub struct EncodedTrajectory<'a>(Vec<SubTrajectory<'a>>);
 pub struct ReferenceSet(pub HashSet<Vec<Point>>);
@@ -112,6 +115,101 @@ impl ReferenceSet {
         (encoded_trajectory, compression_ratio)
     }
 
+    fn get_mrt_set_len_two_st(
+        &self,
+        len_two_st: [Point; 2],
+        spatial_deviation: f64,
+    ) -> HashSet<ReferenceSubTrajectory> {
+        let mut mrt_set: HashSet<ReferenceSubTrajectory> = HashSet::new();
+        for rt in self.0.iter() {
+            for j in 0..rt.len() - 1 {
+                if max_dtw(&len_two_st.to_vec(), &rt[j..=j + 1]) < spatial_deviation {
+                    mrt_set.insert(ReferenceSubTrajectory {
+                        slice: &rt[j..],
+                        used_index: j + 1,
+                    });
+                }
+            }
+        }
+        mrt_set
+    }
+    fn expand_mrt(
+        &self,
+        st: &[Point],
+        rt: ReferenceSubTrajectory,
+        spatial_deviation: f64,
+    ) -> HashSet<ReferenceSubTrajectory> {
+        let mut mrt_set = HashSet::new();
+        let rta = &rt.slice[..=rt.used_index];
+        let rtb = &rt.slice[rt.used_index..=rt.used_index + 1];
+        let rtab = &rt.slice[..=rt.used_index + 1];
+        if max_dtw(st, rta) < spatial_deviation {
+            mrt_set.insert(rt);
+        }
+        if max_dtw(st, rtb) < spatial_deviation {
+            mrt_set.insert(ReferenceSubTrajectory {
+                slice: rtb,
+                used_index: rt.used_index + 1,
+            });
+        }
+        if max_dtw(st, rtab) < spatial_deviation {
+            mrt_set.insert(ReferenceSubTrajectory {
+                slice: rt.slice,
+                used_index: rt.used_index + 1,
+            });
+        }
+        mrt_set
+    }
+    fn get_subtrajectory_references_revamped(
+        &self,
+        trajectory: &Vec<Point>,
+        spatial_deviation: f64,
+    ) -> SubTrajectoryReferenceIndex {
+        let mut trajectory_mrt_dict: SubTrajectoryReferenceIndex =
+            SubTrajectoryReferenceIndex(HashMap::new());
+
+        //calc base set of st len 2
+        let mut global_start = 0;
+        let mut global_end = 1;
+        let mut trajectory_mrt_dict = self.get_mrt_set_len_two_st(
+            [trajectory[global_start], trajectory[global_end]],
+            spatial_deviation,
+        );
+        // attempt expand for this st
+        let mut mrt_set: HashSet<ReferenceSubTrajectory> = HashSet::new();
+
+        // for each reference try to expand for expanded st
+        for rt in trajectory_mrt_dict {
+            //expand loop scope
+            let mut can_expand = true;
+            let mut local_start = global_start;
+            let mut local_end = global_end;
+            while can_expand {
+                let mut rt_set_local = HashSet::new();
+                rt_set_local.insert(rt);
+                let mut expandable_rts = rt_set_local
+                    .iter()
+                    .filter(|rt| rt.used_index + 1 < rt.slice.len())
+                    .collect::<Vec<_>>();
+
+                let mut st_local = &trajectory[local_start..=local_end];
+
+                for expandable_rt in expandable_rts {
+                    let expanded_set = self.expand_mrt(st_local, *expandable_rt, spatial_deviation);
+                    match expanded_set.is_empty() {
+                        true => {
+                            rt_set_local = expanded_set;
+                            st_local = &trajectory[global_start..=global_end];
+                            global_end += 1;
+                        }
+                        false => {}
+                    }
+                }
+            }
+        }
+        //continue working with the base set one by one
+        todo!()
+    }
     fn get_subtrajectory_references(
         &self,
         trajectory: &Vec<Point>,
@@ -120,63 +218,59 @@ impl ReferenceSet {
         let mut trajectory_mrt_dict: SubTrajectoryReferenceIndex =
             SubTrajectoryReferenceIndex(HashMap::new());
 
-        for i in 0..trajectory.len() - 1 {
-            let mut local_hash_set: HashSet<ReferenceSubTrajectory> = HashSet::new();
-            for rt in self.0.iter() {
-                for j in 0..rt.len() - 1 {
-                    if max_dtw(&trajectory[i..=i + 1], &rt[j..=j + 1]) < spatial_deviation {
-                        local_hash_set.insert(ReferenceSubTrajectory(&rt[j..=j + 1]));
-                    }
-                }
-            }
-            if local_hash_set.len() > 0 {
-                trajectory_mrt_dict.0.insert((i, i + 1), local_hash_set);
-            }
-        }
+        let mut first_point_not_indexed = 0;
+        let mut last_indexed_point = 1;
 
-        //len 3,
-        //combine len 2 subtrajectories to len 3
-        //len 4,
-        //combine len 3 subtrajectories to len 4
-        for length in 3..=trajectory.len() {
-            for i in 0..trajectory.len() - length + 1 {
-                let subtrajectory = &trajectory[i..i + length];
-                let a_length = length - 1;
-                let b_length = 2;
-                let a_index = (i, i + a_length - 1);
-                let b_index = (i + a_length, i + a_length + b_length - 1);
-                let rtas = trajectory_mrt_dict.0.get(&a_index);
-                let rtbs = trajectory_mrt_dict.0.get(&b_index);
-                let mut local_hash_set: HashSet<ReferenceSubTrajectory> = HashSet::new();
-                match (rtas, rtbs) {
-                    (Some(rtas), Some(rtbs)) => {
-                        for rta in rtas {
-                            for rtb in rtbs {
-                                if max_dtw(subtrajectory, rta.0) < spatial_deviation {
-                                    local_hash_set.insert(ReferenceSubTrajectory(rta.0));
-                                    break;
-                                }
-                                if max_dtw(subtrajectory, rtb.0) < spatial_deviation {
-                                    local_hash_set.insert(ReferenceSubTrajectory(rtb.0));
-                                }
-                                if &rta.0.last() == &rtb.0.first() {
-                                    unsafe {
-                                        local_hash_set.insert(ReferenceSubTrajectory(
-                                            std::slice::from_raw_parts(
-                                                rta.0.as_ptr(),
-                                                rta.0.len() + 1,
-                                            ),
-                                        ));
-                                    }
-                                    break;
+        while first_point_not_indexed < trajectory.len() - 1 {
+            let mut local_hash_set: HashSet<ReferenceSubTrajectory> = HashSet::new();
+            let subtrajectory = &trajectory[first_point_not_indexed..=last_indexed_point + 1];
+            let rtas = trajectory_mrt_dict
+                .0
+                .get(&(first_point_not_indexed, last_indexed_point));
+
+            let rtbs = trajectory_mrt_dict
+                .0
+                .get(&(last_indexed_point, last_indexed_point + 1));
+
+            match (rtas, rtbs) {
+                (Some(rtas), Some(rtbs)) => {
+                    let begin = std::time::Instant::now();
+                    for rta in rtas {
+                        if max_dtw(subtrajectory, rta.0, &mut dtw_lookup) < spatial_deviation {
+                            local_hash_set.insert(ReferenceSubTrajectory(rta.0));
+                        }
+                    }
+                    for rtb in rtbs {
+                        if max_dtw(subtrajectory, rtb.0, &mut dtw_lookup) < spatial_deviation {
+                            local_hash_set.insert(ReferenceSubTrajectory(rtb.0));
+                        }
+                    }
+                    for rta in rtas {
+                        for rtb in rtbs {
+                            if &rta.0.last() == &rtb.0.first() {
+                                unsafe {
+                                    local_hash_set.insert(ReferenceSubTrajectory(
+                                        std::slice::from_raw_parts(rta.0.as_ptr(), rta.0.len() + 1),
+                                    ));
                                 }
                             }
                         }
-                        trajectory_mrt_dict
-                            .0
-                            .insert((i, i + length - 1), local_hash_set);
                     }
-                    _ => continue,
+                    if local_hash_set.len() > 0 {
+                        trajectory_mrt_dict.0.insert(
+                            (first_point_not_indexed, last_indexed_point + 1),
+                            local_hash_set,
+                        );
+                        last_indexed_point += 1;
+                    } else {
+                        last_indexed_point += 1;
+                        first_point_not_indexed = last_indexed_point;
+                    }
+                    println!("duration {:.2?}", begin.elapsed());
+                }
+                _ => {
+                    last_indexed_point += 1;
+                    first_point_not_indexed = last_indexed_point;
                 }
             }
         }

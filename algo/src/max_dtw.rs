@@ -1,6 +1,6 @@
 use crate::rest::Point;
 
-pub fn max_dtw(ta: &[Point], tb: &[Point]) -> f64 {
+pub fn max_dtw<'a>(ta: &'a [Point], tb: &'a [Point]) -> f64 {
     match (ta, tb) {
         ([], []) => 0.0,
         ([.., a], [.., b]) => a.distance(b).max(q(ta, tb)),
@@ -8,10 +8,10 @@ pub fn max_dtw(ta: &[Point], tb: &[Point]) -> f64 {
     }
 }
 
-fn q(ta: &[Point], tb: &[Point]) -> f64 {
-    max_dtw(except_last(&ta), except_last(tb))
-        .min(max_dtw(except_last(ta), &tb))
-        .min(max_dtw(&ta, except_last(tb)))
+fn q<'a>(ta: &'a [Point], tb: &'a [Point]) -> f64 {
+    max_dtw(except_last(ta), except_last(tb))
+        .min(max_dtw(except_last(ta), tb))
+        .min(max_dtw(ta, except_last(tb)))
 }
 
 fn except_last(s: &[Point]) -> &[Point] {
