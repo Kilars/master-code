@@ -29,6 +29,7 @@ fn main() -> Result<(), csv::Error> {
     let (l, r) = csv_trajectories.split_at(13);
     let _split = l.iter().chain(&r[1..]).cloned();
     for traj in csv_trajectories {
+        let sub_start = std::time::Instant::now();
         let t = traj
             .polyline
             .iter()
@@ -45,6 +46,7 @@ fn main() -> Result<(), csv::Error> {
             println!("inserting length: {:?} to mrt_set \n", t.len());
             mrt_set.0.insert(t);
         }
+        println!("duration: {:.2?}", sub_start.elapsed());
     }
     let elapsed = begin.elapsed();
     println!("Reference set size: {:?}", mrt_set.0.len());

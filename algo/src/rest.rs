@@ -44,17 +44,8 @@ enum SubTrajectory<'a> {
     Trajectory(Vec<Point>),
     Reference(&'a [Point]),
 }
-#[derive(PartialEq, Eq, Hash, Clone, Copy)]
-struct ReferenceSubTrajectory<'a> {
-    slice: &'a [Point],
-    used_index: usize,
-}
-
 pub struct EncodedTrajectory<'a>(Vec<SubTrajectory<'a>>);
 pub struct ReferenceSet(pub HashSet<Vec<Point>>);
-struct SubTrajectoryReferenceIndex<'a>(
-    HashMap<(usize, usize), HashSet<ReferenceSubTrajectory<'a>>>,
-);
 
 impl ReferenceSet {
     pub fn encode(
@@ -88,6 +79,9 @@ impl ReferenceSet {
         let point_size = 4.0;
         // 8 byte reference
         let reference_size = 8.0;
+        if direct_points > 0 {
+            direct_points += 1;
+        }
 
         let compression_ratio = (length as f64 * point_size)
             / ((direct_points as f64 * point_size) + (references as f64 * reference_size));
@@ -98,14 +92,13 @@ impl ReferenceSet {
     fn greedy_mrt_expand(&self, st: &[Point], spatial_deviation: f64) -> Option<(usize, &[Point])> {
         let mut rt_match_map = HashMap::new();
         for rt in self.0.iter() {
-            // Per reference trajectory,
-            // I need access to the whole of rt for the whole of the expansion
+            let mut memoization = HashMap::new();
             let mut st_last_match = 0;
             let mut rt_match = HashSet::new();
             for j in 0..rt.len() - 1 {
-                if max_dtw(&st[..=st_last_match + 1], &rt[j..=j + 1]) < spatial_deviation {
-                    // index range [j..j+1] of reference trajectory matches for the subtrajectory
-                    // want to store the index range (I am storing the match)
+                if max_dtw(&st[..=st_last_match + 1], &rt[j..=j + 1], &mut memoization)
+                    < spatial_deviation
+                {
                     rt_match.insert((j, j + 1));
                 }
             }
@@ -121,13 +114,13 @@ impl ReferenceSet {
                         let rta = &rt[rt_start..=rt_end];
                         let rtb = &rt[rt_end..=rt_end + 1];
                         let rtab = &rt[rt_start..=rt_end + 1];
-                        if max_dtw(local_st, rta) < spatial_deviation {
+                        if max_dtw(local_st, rta, &mut memoization) < spatial_deviation {
                             to_insert.push((rt_start, rt_end));
                         }
-                        if max_dtw(local_st, rtb) < spatial_deviation {
+                        if max_dtw(local_st, rtb, &mut memoization) < spatial_deviation {
                             to_insert.push((rt_end, rt_end + 1));
                         }
-                        if max_dtw(local_st, rtab) < spatial_deviation {
+                        if max_dtw(local_st, rtab, &mut memoization) < spatial_deviation {
                             to_insert.push((rt_start, rt_end + 1));
                         }
                     }
@@ -150,7 +143,11 @@ impl ReferenceSet {
                 }
             }
         }
-        match rt_match_map.iter().max_by_key(|&(k, _)| k) {
+        match rt_match_map
+            .iter()
+            .filter(|&(&k, _)| k != 0)
+            .max_by_key(|&(k, _)| k)
+        {
             Some((&highest_key_entry, &value)) => Some((highest_key_entry, value)),
             None => None,
         }
