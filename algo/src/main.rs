@@ -1,5 +1,4 @@
 use crate::rest::ReferenceSet;
-use itertools::Itertools;
 use serde::{de, Deserialize};
 use std::collections::HashSet;
 pub mod max_dtw;
@@ -19,16 +18,15 @@ fn deserialize_json_string<'de, T: Deserialize<'de>, D: de::Deserializer<'de>>(
 
 fn main() -> Result<(), csv::Error> {
     let begin = std::time::Instant::now();
-    let csv_trajectories: Vec<CsvTrajectory> = csv::Reader::from_path("sample.csv")?
-        .deserialize::<CsvTrajectory>()
-        .try_collect()?;
+    println!("begin reading csv");
+    let rdr = csv::Reader::from_path("porto.csv");
 
     let mut mrt_set = ReferenceSet(HashSet::new());
 
     // Generate reference set
-    let (l, r) = csv_trajectories.split_at(13);
-    let _split = l.iter().chain(&r[1..]).cloned();
-    for traj in csv_trajectories {
+    for (i, res) in rdr?.deserialize().enumerate() {
+        println!("progress {:.2?}%", (i as f64 * 100.0) / 1600000.0);
+        let traj: CsvTrajectory = res?;
         let sub_start = std::time::Instant::now();
         let t = traj
             .polyline
