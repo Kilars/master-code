@@ -45,9 +45,9 @@ enum SubTrajectory<'a> {
     Reference(&'a [Point]),
 }
 pub struct EncodedTrajectory<'a>(Vec<SubTrajectory<'a>>);
-pub struct ReferenceSet(pub HashSet<Vec<Point>>);
+pub struct ReferenceList(pub Vec<Vec<Point>>);
 
-impl ReferenceSet {
+impl ReferenceList {
     pub fn encode(
         &self,
         trajectory: &Vec<Point>,

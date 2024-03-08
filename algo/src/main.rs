@@ -1,6 +1,5 @@
-use crate::rest::ReferenceSet;
+use crate::rest::ReferenceList;
 use serde::{de, Deserialize};
-use std::collections::HashSet;
 pub mod max_dtw;
 pub mod rest;
 
@@ -21,7 +20,7 @@ fn main() -> Result<(), csv::Error> {
     println!("begin reading csv");
     let rdr = csv::Reader::from_path("porto.csv");
 
-    let mut mrt_set = ReferenceSet(HashSet::new());
+    let mut mrt_list = ReferenceList(Vec::new());
 
     // Generate reference set
     for (i, res) in rdr?.deserialize().enumerate() {
@@ -36,18 +35,18 @@ fn main() -> Result<(), csv::Error> {
         println!(
             "begin encoding trajectory: {:?} with {:?} in mrt set",
             t.len(),
-            mrt_set.0.len()
+            mrt_list.0.len()
         );
-        let (_encoded_t, compression_ratio) = mrt_set.encode(&t, 0.2);
+        let (_encoded_t, compression_ratio) = mrt_list.encode(&t, 0.2);
         println!("{:?}", compression_ratio);
         if compression_ratio < 5.0 {
             println!("inserting length: {:?} to mrt_set \n", t.len());
-            mrt_set.0.insert(t);
+            mrt_list.0.push(t);
         }
         println!("duration: {:.2?}", sub_start.elapsed());
     }
     let elapsed = begin.elapsed();
-    println!("Reference set size: {:?}", mrt_set.0.len());
+    println!("Reference set size: {:?}", mrt_list.0.len());
     println!("duration {:.2?}", elapsed);
     Ok(())
 }
