@@ -1,7 +1,11 @@
 use crate::max_dtw::max_dtw;
-extern crate haversine;
+use crate::spatial_filter::PointWithIndexReference;
+
 use haversine::{distance, Location};
+use rstar::{RTree, AABB};
 use std::collections::{HashMap, HashSet};
+
+extern crate haversine;
 
 impl From<(f32, f32)> for Point {
     fn from(value: (f32, f32)) -> Point {
@@ -11,7 +15,7 @@ impl From<(f32, f32)> for Point {
         }
     }
 }
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct Point {
     pub lat: i32,
     pub lng: i32,
@@ -38,20 +42,29 @@ impl Point {
         let dy = self.lng as f32 / 1000000.0 - other.lng as f32 / 1000000.0;
         (dx.powf(2.0) + dy.powf(2.0)).sqrt()
     }
+    pub fn lng_as_f32(&self) -> f32 {
+        self.lng as f32 / 1000000.0
+    }
+    pub fn lat_as_f32(&self) -> f32 {
+        self.lat as f32 / 1000000.0
+    }
 }
 #[derive(PartialEq, Eq, Hash)]
-enum SubTrajectory<'a> {
+pub enum SubTrajectory<'a> {
     Trajectory(Vec<Point>),
     Reference(&'a [Point]),
 }
-pub struct EncodedTrajectory<'a>(Vec<SubTrajectory<'a>>);
-pub struct ReferenceList(pub Vec<Vec<Point>>);
+pub struct EncodedTrajectory<'a>(pub Vec<SubTrajectory<'a>>);
+pub struct ReferenceList {
+    pub trajectories: Vec<Vec<Point>>,
+}
 
 impl ReferenceList {
     pub fn encode(
         &self,
         trajectory: &Vec<Point>,
         spatial_deviation: f64,
+        r_tree: Option<&RTree<PointWithIndexReference>>,
     ) -> (EncodedTrajectory, f64) {
         let length = trajectory.len();
         let mut encoded_trajectory = EncodedTrajectory(Vec::new());
@@ -59,7 +72,11 @@ impl ReferenceList {
         let mut references = 0;
         let mut direct_points = 0;
         while last_indexed_point < length - 1 {
-            match self.greedy_mrt_expand(&trajectory[last_indexed_point..], spatial_deviation) {
+            match self.greedy_mrt_expand(
+                &trajectory[last_indexed_point..],
+                spatial_deviation,
+                r_tree,
+            ) {
                 Some((new_last_index, mrt)) => {
                     last_indexed_point += new_last_index;
                     encoded_trajectory.0.push(SubTrajectory::Reference(mrt));
@@ -89,9 +106,24 @@ impl ReferenceList {
         (encoded_trajectory, compression_ratio)
     }
 
-    fn greedy_mrt_expand(&self, st: &[Point], spatial_deviation: f64) -> Option<(usize, &[Point])> {
+    fn greedy_mrt_expand(
+        &self,
+        st: &[Point],
+        spatial_deviation: f64,
+        r_tree: Option<&RTree<PointWithIndexReference>>,
+    ) -> Option<(usize, &[Point])> {
         let mut rt_match_map = HashMap::new();
-        for rt in self.0.iter() {
+        let spatial_filter: Vec<&[Point]> = match r_tree {
+            Some(tree) => tree
+                .locate_in_envelope(&AABB::from_corners(
+                    [st[0].lat_as_f32() + 0.00005, st[0].lng_as_f32() + 0.00005],
+                    [st[0].lat_as_f32() - 0.00005, st[0].lng_as_f32() - 0.00005],
+                ))
+                .map(|x| &self.trajectories[x.index.0][x.index.1..])
+                .collect::<Vec<_>>(),
+            None => self.trajectories.iter().map(|x| &x[..]).collect::<Vec<_>>(),
+        };
+        for rt in spatial_filter {
             let mut memoization = HashMap::new();
             let mut st_last_match = 0;
             let mut rt_match = HashSet::new();
