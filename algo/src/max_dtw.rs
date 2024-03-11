@@ -12,7 +12,6 @@ pub fn max_dtw<'a>(
         _ => f64::MAX,
     }
 }
-
 fn memo_or_calculate<'a>(
     st: &'a [Point],
     rt: &'a [Point],
