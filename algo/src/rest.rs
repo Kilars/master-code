@@ -64,6 +64,7 @@ impl ReferenceList {
         &self,
         trajectory: &Vec<Point>,
         spatial_deviation: f64,
+        r_tree_point_threshold: f64,
         r_tree: Option<&RTree<PointWithIndexReference>>,
     ) -> (EncodedTrajectory, f64) {
         let length = trajectory.len();
@@ -72,9 +73,11 @@ impl ReferenceList {
         let mut references = 0;
         let mut direct_points = 0;
         while last_indexed_point < length - 1 {
+            //spatial deviation from m to k
             match self.greedy_mrt_expand(
                 &trajectory[last_indexed_point..],
-                spatial_deviation,
+                spatial_deviation / 1000.0,
+                r_tree_point_threshold,
                 r_tree,
             ) {
                 Some((new_last_index, mrt)) => {
@@ -110,17 +113,28 @@ impl ReferenceList {
         &self,
         st: &[Point],
         spatial_deviation: f64,
+        r_tree_point_threshold: f64,
         r_tree: Option<&RTree<PointWithIndexReference>>,
     ) -> Option<(usize, &[Point])> {
         let mut rt_match_map = HashMap::new();
         let spatial_filter: Vec<&[Point]> = match r_tree {
-            Some(tree) => tree
-                .locate_in_envelope(&AABB::from_corners(
-                    [st[0].lat_as_f32() + 0.00005, st[0].lng_as_f32() + 0.00005],
-                    [st[0].lat_as_f32() - 0.00005, st[0].lng_as_f32() - 0.00005],
+            Some(tree) => {
+                let lat_d = (r_tree_point_threshold / 111319.9) as f32;
+                let lng_d = r_tree_point_threshold as f32
+                    / (111319.9 * st[0].lat_as_f32().to_radians().cos());
+                tree.locate_in_envelope(&AABB::from_corners(
+                    [
+                        st[0].lat_as_f32() + lat_d as f32,
+                        st[0].lng_as_f32() + lng_d as f32,
+                    ],
+                    [
+                        st[0].lat_as_f32() - lat_d as f32,
+                        st[0].lng_as_f32() - lng_d as f32,
+                    ],
                 ))
                 .map(|x| &self.trajectories[x.index.0][x.index.1..])
-                .collect::<Vec<_>>(),
+                .collect::<Vec<_>>()
+            }
             None => self.trajectories.iter().map(|x| &x[..]).collect::<Vec<_>>(),
         };
         for rt in spatial_filter {
