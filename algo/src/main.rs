@@ -1,54 +1,30 @@
-use crate::rest::ReferenceList;
-use crate::spatial_filter::sequential_mrt_build_spatial_filter;
-use serde::{de, Deserialize};
+use crate::algorithm::{rest_main, Config};
+use std::io::Write;
+
+pub mod algorithm;
 pub mod max_dtw;
 pub mod rest;
 pub mod spatial_filter;
 
-#[derive(Deserialize, Clone)]
-struct CsvTrajectory {
-    #[serde(deserialize_with = "deserialize_json_string")]
-    polyline: Vec<(f32, f32)>,
-}
-
-fn deserialize_json_string<'de, T: Deserialize<'de>, D: de::Deserializer<'de>>(
-    deserializer: D,
-) -> Result<T, D::Error> {
-    serde_json::from_str(Deserialize::deserialize(deserializer)?).map_err(de::Error::custom)
-}
-
 fn main() -> Result<(), csv::Error> {
-    let begin = std::time::Instant::now();
-    println!("begin reading csv");
-    let par_records = csv::Reader::from_path("porto.csv")?
-        .deserialize()
-        .take(10000)
-        .map(|res| {
-            res.map(|traj: CsvTrajectory| {
-                traj.polyline
-                    .iter()
-                    .map(|&pnt| pnt.into())
-                    .collect::<Vec<_>>()
-            })
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-
-    println!("csv in memory {:.2?}", begin.elapsed());
-
-    sequential_mrt_build_spatial_filter(par_records);
-
-    let mrt_list = ReferenceList {
-        trajectories: Vec::new(),
+    let conf = Config {
+        n: 10000,
+        compression_ratio: 5,
+        spatial_filter: true,
+        error_trajectories: 200,
+        error_point: 5,
     };
 
-    //par_records.into_iter().for_each(|t| {
-    //    let (_encoded_t, compression_ratio) = mrt_list.encode(&t, 0.2, None);
-    //    if compression_ratio < 5.0 {
-    //        mrt_list.trajectories.push(t);
-    //    }
-    //});
-    let elapsed = begin.elapsed();
-    println!("Reference set size: {:?}", mrt_list.trajectories.len());
-    println!("duration {:.2?}", elapsed);
+    let mut file = std::fs::File::options()
+        .create(true)
+        .append(true)
+        .open("out/output.txt")
+        .expect("Failed to open or create the file");
+
+    write!(file, "{:?}\n", conf).unwrap();
+
+    let begin = std::time::Instant::now();
+    let _res = rest_main(conf);
+    write!(file, "Time: {:.2?}\n", begin.elapsed()).unwrap();
     Ok(())
 }

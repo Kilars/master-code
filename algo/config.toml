@@ -1,0 +1,6 @@
+n = 1000 # Number of trajectories
+error_trajectory = 200 # error distance trajectory in meters
+spatial_filter = true
+error_point = 5 # error distance point in meters
+compression_ratio = 5 # trajectory redundancy threshold
+
