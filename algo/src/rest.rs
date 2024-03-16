@@ -49,11 +49,12 @@ impl Point {
         self.lat as f32 / 1000000.0
     }
 }
-#[derive(PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum SubTrajectory<'a> {
     Trajectory(Vec<Point>),
     Reference(&'a [Point]),
 }
+#[derive(Clone)]
 pub struct EncodedTrajectory<'a>(pub Vec<SubTrajectory<'a>>);
 pub struct ReferenceList {
     pub trajectories: Vec<Vec<Point>>,
