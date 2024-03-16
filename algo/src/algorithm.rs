@@ -1,4 +1,4 @@
-use crate::rest::ReferenceList;
+use crate::rest::{EncodedTrajectory, ReferenceList};
 use crate::spatial_filter::PointWithIndexReference;
 
 use rstar::RTree;
@@ -18,15 +18,16 @@ fn deserialize_json_string<'de, T: Deserialize<'de>, D: de::Deserializer<'de>>(
 #[derive(Debug)]
 pub struct Config {
     pub n: i32,
+    pub rs: i32, //Reference set size in milliparts (thousandths)
     pub compression_ratio: i32,
     pub spatial_filter: bool,
     pub error_trajectories: i32,
     pub error_point: i32,
 }
 pub fn rest_main(conf: Config) -> Result<(), csv::Error> {
-    let par_records = csv::Reader::from_path("porto.csv")?
+    let mrt_source = csv::Reader::from_path("porto.csv")?
         .deserialize()
-        .take(conf.n as usize)
+        .take(((conf.rs / 1000) * conf.n) as usize)
         .map(|res| {
             res.map(|traj: CsvTrajectory| {
                 traj.polyline
@@ -45,9 +46,9 @@ pub fn rest_main(conf: Config) -> Result<(), csv::Error> {
     } else {
         None
     };
-
-    par_records.into_iter().for_each(|t| {
-        let (_encoded_t, compression_ratio) = mrt_list.encode(
+    let begin_mrt = std::time::Instant::now();
+    mrt_source.into_iter().for_each(|t| {
+        let (_, compression_ratio) = mrt_list.encode(
             &t,
             conf.error_trajectories as f64,
             conf.error_point as f64,
@@ -65,6 +66,35 @@ pub fn rest_main(conf: Config) -> Result<(), csv::Error> {
             mrt_list.trajectories.push(t);
         }
     });
+
+    println!("MRT time: {:.2?}", begin_mrt.elapsed());
+
+    let begin_encoding = std::time::Instant::now();
+
+    let n_trajectories = csv::Reader::from_path("porto.csv")?
+        .deserialize()
+        .take(conf.n as usize)
+        .map(|res| {
+            res.map(|traj: CsvTrajectory| {
+                traj.polyline
+                    .iter()
+                    .map(|&pnt| pnt.into())
+                    .collect::<Vec<_>>()
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let mut encoded_trajectories = Vec::new();
+    n_trajectories.into_iter().for_each(|t| {
+        let (encoded, _) = mrt_list.encode(
+            &t,
+            conf.error_trajectories as f64,
+            conf.error_point as f64,
+            r_tree.as_ref(),
+        );
+        encoded_trajectories.push(encoded);
+    });
+    println!("Encoding time: {:.2?}", begin_encoding.elapsed());
 
     Ok(())
 }
