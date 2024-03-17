@@ -1,4 +1,4 @@
-use crate::rest::{EncodedTrajectory, ReferenceList};
+use crate::rest::ReferenceList;
 use crate::spatial_filter::PointWithIndexReference;
 
 use rstar::RTree;
@@ -27,7 +27,7 @@ pub struct Config {
 pub fn rest_main(conf: Config) -> Result<(), csv::Error> {
     let mrt_source = csv::Reader::from_path("porto.csv")?
         .deserialize()
-        .take(((conf.rs / 1000) * conf.n) as usize)
+        .take(((conf.rs as f32 / 1000.0) * conf.n as f32) as usize)
         .map(|res| {
             res.map(|traj: CsvTrajectory| {
                 traj.polyline
@@ -38,6 +38,7 @@ pub fn rest_main(conf: Config) -> Result<(), csv::Error> {
         })
         .collect::<Result<Vec<_>, _>>()?;
 
+    println!("MRT source size: {}", mrt_source.len());
     let mut mrt_list = ReferenceList {
         trajectories: Vec::new(),
     };
@@ -67,6 +68,7 @@ pub fn rest_main(conf: Config) -> Result<(), csv::Error> {
         }
     });
 
+    println!("MRT list size: {}", mrt_list.trajectories.len());
     println!("MRT time: {:.2?}", begin_mrt.elapsed());
 
     let begin_encoding = std::time::Instant::now();
