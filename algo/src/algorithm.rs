@@ -87,13 +87,34 @@ pub fn rest_main(conf: Config) -> Result<(), csv::Error> {
         .collect::<Result<Vec<_>, _>>()?;
 
     let mut encoded_trajectories = Vec::new();
+    let mut index = 0;
     n_trajectories.into_iter().for_each(|t| {
-        let (encoded, _) = mrt_list.encode(
+        index += 1;
+        let begin_encode = std::time::Instant::now();
+        let (encoded, cr) = mrt_list.encode(
             &t,
             conf.error_trajectories as f64,
             conf.error_point as f64,
             r_tree.as_ref(),
         );
+        let elapsed = begin_encode.elapsed();
+
+        if elapsed > std::time::Duration::from_secs(60) {
+            println!(
+                "Percentage {:.2?}%, cr: {:.2}, time: {:.2?}, encoded len: {}",
+                index as f64 / conf.n as f64 * 100.0,
+                cr,
+                elapsed,
+                encoded.0.len()
+            );
+            mrt_list.encode_with_debug_ts(
+                &t,
+                conf.error_trajectories as f64,
+                conf.error_point as f64,
+                r_tree.as_ref(),
+            );
+        }
+
         encoded_trajectories.push(encoded);
     });
     println!("Encoding time: {:.2?}", begin_encoding.elapsed());
