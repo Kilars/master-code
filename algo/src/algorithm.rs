@@ -1,8 +1,11 @@
-use crate::rest::ReferenceList;
+use crate::max_dtw::max_dtw;
+use crate::plot::graph_trajectory;
+use crate::rest::{EncodedTrajectory, Point, ReferenceList, SubTrajectory};
 use crate::spatial_filter::PointWithIndexReference;
 
 use rstar::RTree;
 use serde::{de, Deserialize};
+use std::collections::HashMap;
 
 #[derive(Deserialize, Clone)]
 struct CsvTrajectory {
@@ -24,7 +27,31 @@ pub struct Config {
     pub error_trajectories: i32,
     pub error_point: i32,
 }
-pub fn rest_main(conf: Config) -> Result<(), csv::Error> {
+#[derive(Debug)]
+pub struct PerformanceMetrics {
+    pub avg_cr: f64,
+    pub avg_mdtw: f64,
+    pub runtime: std::time::Duration,
+}
+
+fn reconstruct_compressed(compressed_trajectory: EncodedTrajectory) -> Vec<Point> {
+    let mut reconstructed: Vec<Point> = Vec::new();
+    compressed_trajectory
+        .0
+        .iter()
+        .for_each(|compressed| match compressed {
+            SubTrajectory::Reference(reference) => reference.iter().for_each(|point| {
+                reconstructed.push(point.clone());
+            }),
+            SubTrajectory::Trajectory(raw_trajectory) => raw_trajectory.iter().for_each(|point| {
+                reconstructed.push(point.clone());
+            }),
+        });
+
+    reconstructed
+}
+
+pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
     let mrt_source = csv::Reader::from_path("porto.csv")?
         .deserialize()
         .take(((conf.rs as f32 / 1000.0) * conf.n as f32) as usize)
@@ -88,7 +115,7 @@ pub fn rest_main(conf: Config) -> Result<(), csv::Error> {
 
     let mut encoded_trajectories = Vec::new();
     let mut index = 0;
-    n_trajectories.into_iter().for_each(|t| {
+    n_trajectories.iter().for_each(|t| {
         index += 1;
         let begin_encode = std::time::Instant::now();
         let (encoded, cr) = mrt_list.encode(
@@ -107,17 +134,74 @@ pub fn rest_main(conf: Config) -> Result<(), csv::Error> {
                 elapsed,
                 encoded.0.len()
             );
-            mrt_list.encode_with_debug_ts(
-                &t,
-                conf.error_trajectories as f64,
-                conf.error_point as f64,
-                r_tree.as_ref(),
+            let graph_res = graph_trajectory(
+                &format!("./plots/encoded_{}.png", index),
+                &format!("./plots/og_{}.png", index),
+                encoded.clone(),
+                t.clone(),
+            );
+            if graph_res.is_err() {
+                println!("Error: {:?}", graph_res.err());
+            } else {
+                println!("Graph created");
+            }
+            //mrt_list.encode_with_debug_ts(
+            //    &t,
+            //    conf.error_trajectories as f64,
+            //    conf.error_point as f64,
+            //    r_tree.as_ref(),
+            //);
+        } else if index < 10 || (index > 1230 && index < 1240) {
+            let _graph_res = graph_trajectory(
+                &format!("./plots/encoded_{}.png", index),
+                &format!("./plots/og_{}.png", index),
+                encoded.clone(),
+                t.clone(),
             );
         }
-
-        encoded_trajectories.push(encoded);
+        encoded_trajectories.push((encoded, cr));
     });
-    println!("Encoding time: {:.2?}", begin_encoding.elapsed());
 
-    Ok(())
+    let runtime = begin_encoding.elapsed();
+
+    println!("Runtime: {:.2?}", runtime);
+
+    let performance_metrics_begin = std::time::Instant::now();
+
+    let avg_cr = encoded_trajectories.iter().map(|(_, cr)| cr).sum::<f64>()
+        / encoded_trajectories.len() as f64;
+
+    println!("avg_cr {:.2?}", performance_metrics_begin.elapsed());
+    let avg_mdtw = encoded_trajectories
+        .iter()
+        .enumerate()
+        .map(|(index, (encoded, _))| {
+            let mut map = HashMap::new();
+            let original_trajectory = n_trajectories[index].clone();
+            let reconstructed_from_encode = reconstruct_compressed(encoded.clone());
+            let reconstructed_slice = reconstructed_from_encode.as_slice();
+
+            let foo = max_dtw(&original_trajectory, reconstructed_slice, &mut map);
+
+            foo
+        })
+        .sum::<f64>()
+        / encoded_trajectories.len() as f64;
+
+    println!("mdtw {:.2?}", performance_metrics_begin.elapsed());
+    // Performance metrics:
+    //  - Average Compression ratio
+    //  - Average MaxDTW / Another error metric?
+    //  - Runtime
+
+    println!(
+        "Performance metrics runtime {:.2?}",
+        performance_metrics_begin.elapsed()
+    );
+
+    Ok(PerformanceMetrics {
+        avg_cr,
+        avg_mdtw,
+        runtime,
+    })
 }
