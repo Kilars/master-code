@@ -1,5 +1,4 @@
-use crate::plot::graph_trajectory;
-use crate::rest::{EncodedTrajectory, Point, ReferenceList, SubTrajectory};
+use crate::rest::ReferenceList;
 use crate::spatial_filter::PointWithIndexReference;
 use std::io::{self, Write};
 
@@ -17,7 +16,7 @@ fn deserialize_json_string<'de, T: Deserialize<'de>, D: de::Deserializer<'de>>(
 ) -> Result<T, D::Error> {
     serde_json::from_str(Deserialize::deserialize(deserializer)?).map_err(de::Error::custom)
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Config {
     pub n: i32,
     pub rs: i32, //Reference set size in milliparts (thousandths)
@@ -31,10 +30,12 @@ pub struct Config {
 pub struct PerformanceMetrics {
     pub avg_cr: f64,
     pub avg_mdtw: f64,
+    pub set_size: i32,
     pub runtime: std::time::Duration,
 }
 
 pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
+    let begin = std::time::Instant::now();
     let mrt_source = csv::Reader::from_path("porto.csv")?
         .deserialize()
         .take(((conf.rs as f32 / 1000.0) * conf.n as f32) as usize)
@@ -82,8 +83,6 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
     println!("MRT list size: {}", mrt_list.trajectories.len());
     println!("MRT time: {:.2?}", begin_mrt.elapsed());
 
-    let begin_encoding = std::time::Instant::now();
-
     let n_trajectories = csv::Reader::from_path("porto.csv")?
         .deserialize()
         .take(conf.n as usize)
@@ -98,10 +97,7 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
         .collect::<Result<Vec<_>, _>>()?;
 
     let mut encoded_trajectories = Vec::new();
-    let mut index = 0;
     n_trajectories.iter().for_each(|t| {
-        index += 1;
-        print!("\r index: {}", index);
         io::stdout().flush().unwrap();
         let (encoded, cr) = mrt_list.encode(
             &t,
@@ -110,22 +106,19 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
             conf.error_point as f64,
             r_tree.as_ref(),
         );
+
         encoded_trajectories.push((encoded, cr));
     });
 
-    let runtime = begin_encoding.elapsed();
+    let runtime = begin.elapsed();
 
     let avg_cr = encoded_trajectories.iter().map(|(_, cr)| cr).sum::<f64>()
         / encoded_trajectories.len() as f64;
 
-    // Performance metrics:
-    //  - Average Compression ratio
-    //  - Average MaxDTW / Another error metric?
-    //  - Runtime
-
     Ok(PerformanceMetrics {
         avg_cr,
         avg_mdtw: 6.9,
+        set_size: mrt_list.trajectories.len() as i32,
         runtime,
     })
 }

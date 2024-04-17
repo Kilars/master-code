@@ -1,5 +1,4 @@
 use crate::dtw_band::{dtw as dtw_normal, dtw_band};
-use crate::max_dtw::max_dtw as slow_dtw;
 use crate::spatial_filter::PointWithIndexReference;
 
 use haversine::{distance, Location};
