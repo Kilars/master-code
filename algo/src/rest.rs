@@ -195,10 +195,10 @@ impl ReferenceList {
         let begin_loop_spatial = std::time::Instant::now();
         for rt in spatial_filter {
             let mut memoization = HashMap::new();
-            let mut st_last_match = 0;
+            let mut st_last_match = 1;
             let mut rt_match = HashSet::new();
             for j in 0..rt.len() - 1 {
-                if max_dtw(&st[..=st_last_match + 1], &rt[j..=j + 1], &mut memoization)
+                if max_dtw(&st[..=st_last_match], &rt[j..=j + 1], &mut memoization)
                     < spatial_deviation
                 {
                     rt_match.insert((j, j + 1));
@@ -287,10 +287,10 @@ impl ReferenceList {
         };
         for rt in spatial_filter {
             let mut memoization = HashMap::new();
-            let mut st_last_match = 0;
+            let mut st_last_match = 1;
             let mut rt_match = HashSet::new();
             for j in 0..rt.len() - 1 {
-                if max_dtw(&st[..=st_last_match + 1], &rt[j..=j + 1], &mut memoization)
+                if max_dtw(&st[..=st_last_match], &rt[j..=j + 1], &mut memoization)
                     < spatial_deviation
                 {
                     rt_match.insert((j, j + 1));
