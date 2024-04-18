@@ -206,12 +206,12 @@ impl ReferenceList {
             }
             while !rt_match.is_empty() {
                 let mut to_insert = Vec::new();
+                st_last_match += 1;
                 for m in rt_match.iter() {
                     let &(rt_start, rt_end) = m;
                     let st_index_check = st_last_match < st.len() - 1;
                     let rt_index_check = rt_end < rt.len() - 1;
                     if st_index_check && rt_index_check {
-                        st_last_match += 1;
                         let local_st = &st[..=st_last_match];
                         let rta = &rt[rt_start..=rt_end];
                         let rtb = &rt[rt_end..=rt_end + 1];
@@ -298,12 +298,12 @@ impl ReferenceList {
             }
             while !rt_match.is_empty() {
                 let mut to_insert = Vec::new();
+                st_last_match += 1;
                 for m in rt_match.iter() {
                     let &(rt_start, rt_end) = m;
                     let st_index_check = st_last_match < st.len() - 1;
                     let rt_index_check = rt_end < rt.len() - 1;
                     if st_index_check && rt_index_check {
-                        st_last_match += 1;
                         let local_st = &st[..=st_last_match];
                         let rta = &rt[rt_start..=rt_end];
                         let rtb = &rt[rt_end..=rt_end + 1];
