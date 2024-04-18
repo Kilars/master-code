@@ -44,7 +44,6 @@ pub fn graph_trajectory(
         .y_labels(10)
         .draw()?;
 
-    let mut last_point = Point { lat: 0, lng: 0 };
     for st in encoded.0.iter() {
         match st {
             SubTrajectory::Reference(reference) => {
@@ -52,34 +51,28 @@ pub fn graph_trajectory(
                 for point in reference.iter() {
                     t.push(point.clone());
                 }
-                if last_point.lat != 0 {
-                    ctx.draw_series(LineSeries::new(
-                        vec![(last_point.lat, last_point.lng), (t[0].lat, t[0].lng)],
-                        &GREEN,
-                    ))?;
-                }
                 ctx.draw_series(LineSeries::new(
                     t.iter().map(|pnt| (pnt.lat, pnt.lng)),
                     &RED,
                 ))?;
-                last_point = t[t.len() - 1].clone();
+                ctx.draw_series(PointSeries::of_element(
+                    vec![(t[0].lat, t[0].lng)],
+                    4,
+                    &BLACK,
+                    &|coord, size, style| {
+                        EmptyElement::at(coord) + Circle::new((0, 0), size, style.filled())
+                    },
+                ))?;
             }
             SubTrajectory::Trajectory(trajectory) => {
                 let mut t = Vec::new();
                 for point in trajectory.iter() {
                     t.push(point.clone());
                 }
-                if last_point.lat != 0 {
-                    ctx.draw_series(LineSeries::new(
-                        vec![(last_point.lat, last_point.lng), (t[0].lat, t[0].lng)],
-                        &GREEN,
-                    ))?;
-                }
                 ctx.draw_series(LineSeries::new(
                     t.iter().map(|pnt| (pnt.lat, pnt.lng)),
                     &BLUE,
                 ))?;
-                last_point = t[t.len() - 1].clone();
             }
         }
     }

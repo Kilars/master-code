@@ -9,7 +9,7 @@ pub mod spatial_filter;
 
 fn main() -> Result<(), csv::Error> {
     let conf = Config {
-        n: 1000,
+        n: 10000,
         rs: 10,
         compression_ratio: 5,
         spatial_filter: true,
