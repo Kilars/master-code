@@ -45,7 +45,7 @@ fn main() -> Result<(), csv::Error> {
         spatial_filter: true,
         dtw_band: 0,
         error_trajectories: 200,
-        error_point: 20,
+        error_point: 5,
     };
     let rs_seq = vec![5, 10, 50, 100, 200, 500];
 
