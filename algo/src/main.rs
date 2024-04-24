@@ -2,6 +2,7 @@ use crate::algorithm::{rest_main, Config};
 use std::io::Write;
 
 pub mod algorithm;
+pub mod dtw_band;
 pub mod max_dtw;
 pub mod plot;
 pub mod rest;
@@ -13,6 +14,16 @@ fn main() -> Result<(), csv::Error> {
         rs: 10,
         compression_ratio: 5,
         spatial_filter: true,
+        approx_dtw: false,
+        error_trajectories: 200,
+        error_point: 20,
+    };
+    let conf_fast_dtw = Config {
+        n: 10000,
+        rs: 10,
+        compression_ratio: 5,
+        spatial_filter: true,
+        approx_dtw: true,
         error_trajectories: 200,
         error_point: 20,
     };
@@ -24,19 +35,21 @@ fn main() -> Result<(), csv::Error> {
 
     write!(file, "{:?}\n", conf).unwrap();
 
-    let begin = std::time::Instant::now();
+    for conf in vec![conf_fast_dtw, conf] {
+        let begin = std::time::Instant::now();
 
-    let res = rest_main(conf);
-    match res {
-        Ok(res) => {
-            println!(
-                "Res {:.2?} avg_mdtw {:.4?} avg_cr {:.2?}",
-                res.runtime, res.avg_mdtw, res.avg_cr
-            )
+        let res = rest_main(conf);
+        match res {
+            Ok(res) => {
+                println!(
+                    "Res {:.2?} avg_mdtw {:.4?} avg_cr {:.2?}",
+                    res.runtime, res.avg_mdtw, res.avg_cr
+                )
+            }
+            Err(_) => {}
         }
-        Err(_) => {}
+        write!(file, "Time: {:.2?}\n", begin.elapsed()).unwrap();
     }
-    write!(file, "Time: {:.2?}\n", begin.elapsed()).unwrap();
 
     Ok(())
 }

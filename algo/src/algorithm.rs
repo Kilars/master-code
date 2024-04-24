@@ -1,11 +1,9 @@
-use crate::max_dtw::max_dtw;
 use crate::plot::graph_trajectory;
 use crate::rest::{EncodedTrajectory, Point, ReferenceList, SubTrajectory};
 use crate::spatial_filter::PointWithIndexReference;
 
 use rstar::RTree;
 use serde::{de, Deserialize};
-use std::collections::HashMap;
 
 #[derive(Deserialize, Clone)]
 struct CsvTrajectory {
@@ -24,6 +22,7 @@ pub struct Config {
     pub rs: i32, //Reference set size in milliparts (thousandths)
     pub compression_ratio: i32,
     pub spatial_filter: bool,
+    pub approx_dtw: bool,
     pub error_trajectories: i32,
     pub error_point: i32,
 }
@@ -79,6 +78,7 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
         let (_, compression_ratio) = mrt_list.encode(
             &t,
             conf.error_trajectories as f64,
+            conf.approx_dtw,
             conf.error_point as f64,
             r_tree.as_ref(),
         );
@@ -121,6 +121,7 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
         let (encoded, cr) = mrt_list.encode(
             &t,
             conf.error_trajectories as f64,
+            conf.approx_dtw,
             conf.error_point as f64,
             r_tree.as_ref(),
         );
@@ -146,12 +147,6 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
             } else {
                 println!("Graph created");
             }
-            //mrt_list.encode_with_debug_ts(
-            //    &t,
-            //    conf.error_trajectories as f64,
-            //    conf.error_point as f64,
-            //    r_tree.as_ref(),
-            //);
         } else if index < 10 || (index > 1230 && index < 1240) {
             let _graph_res = graph_trajectory(
                 &format!("./plots/encoded_{}.png", index),

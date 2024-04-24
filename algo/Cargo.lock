@@ -13,6 +13,7 @@ name = "algo"
 version = "0.1.0"
 dependencies = [
  "csv",
+ "dtw_rs",
  "flatbuffers",
  "haversine",
  "itertools",
@@ -249,6 +250,12 @@ checksum = "330c60081dcc4c72131f8eb70510f1ac07223e5d4163db481a04a0befcffa412"
 dependencies = [
  "libloading",
 ]
+
+[[package]]
+name = "dtw_rs"
+version = "0.9.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "347675b2993d588e8506457ea2de0e64a89ad0fcbc0e79d07d25f50542f40b59"
 
 [[package]]
 name = "dwrote"

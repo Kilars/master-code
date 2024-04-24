@@ -1,0 +1,9 @@
+   Compiling algo v0.1.0 (/home/larsski/Master/code/algo)
+    Finished dev [unoptimized + debuginfo] target(s) in 0.67s
+     Running `target/debug/algo`
+MRT source size: 500
+MRT list size: 444
+MRT time: 171.50s
+MRT source size: 1000
+MRT list size: 749
+MRT time: 280.29s

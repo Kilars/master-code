@@ -1,4 +1,5 @@
-use crate::max_dtw::max_dtw;
+use crate::dtw_band::dtw_band as approx_dtw;
+use crate::max_dtw::max_dtw as slow_dtw;
 use crate::spatial_filter::PointWithIndexReference;
 
 use haversine::{distance, Location};
@@ -60,62 +61,24 @@ pub struct ReferenceList {
     pub trajectories: Vec<Vec<Point>>,
 }
 
-impl ReferenceList {
-    pub fn encode_with_debug_ts(
-        &self,
-        trajectory: &Vec<Point>,
-        spatial_deviation: f64,
-        r_tree_point_threshold: f64,
-        r_tree: Option<&RTree<PointWithIndexReference>>,
-    ) -> (EncodedTrajectory, f64) {
-        println!("In encode debug since it took too long");
-        let length = trajectory.len();
-        let mut encoded_trajectory = EncodedTrajectory(Vec::new());
-        let mut last_indexed_point = 0;
-        let mut references = 0;
-        let mut direct_points = 0;
-
-        println!("Len {:?}", trajectory.len());
-        while last_indexed_point < length - 1 {
-            //spatial deviation from m to k
-            match self.greedy_mrt_expand_debug(
-                &trajectory[last_indexed_point..],
-                spatial_deviation / 1000.0,
-                r_tree_point_threshold,
-                r_tree,
-            ) {
-                Some((new_last_index, mrt)) => {
-                    last_indexed_point += new_last_index;
-                    encoded_trajectory.0.push(SubTrajectory::Reference(mrt));
-                    references += 1;
-                }
-                None => {
-                    encoded_trajectory.0.push(SubTrajectory::Trajectory(
-                        trajectory[last_indexed_point..=last_indexed_point + 1].to_vec(),
-                    ));
-                    last_indexed_point += 1;
-                    direct_points += 1;
-                }
-            }
-        }
-
-        // i32 is 4 bytes
-        let point_size = 4.0;
-        // 8 byte reference
-        let reference_size = 8.0;
-        if direct_points > 0 {
-            direct_points += 1;
-        }
-
-        let compression_ratio = (length as f64 * point_size)
-            / ((direct_points as f64 * point_size) + (references as f64 * reference_size));
-
-        (encoded_trajectory, compression_ratio)
+pub fn max_dtw<'a>(
+    st: &'a [Point],
+    rt: &'a [Point],
+    memo: &mut HashMap<(&'a [Point], &'a [Point]), f64>,
+    approx: bool,
+) -> f64 {
+    if approx {
+        approx_dtw(st, rt)
+    } else {
+        slow_dtw(st, rt, memo)
     }
+}
+impl ReferenceList {
     pub fn encode(
         &self,
         trajectory: &Vec<Point>,
         spatial_deviation: f64,
+        approx: bool,
         r_tree_point_threshold: f64,
         r_tree: Option<&RTree<PointWithIndexReference>>,
     ) -> (EncodedTrajectory, f64) {
@@ -130,6 +93,7 @@ impl ReferenceList {
             match self.greedy_mrt_expand(
                 &trajectory[last_indexed_point..],
                 spatial_deviation / 1000.0,
+                approx,
                 r_tree_point_threshold,
                 r_tree,
             ) {
@@ -162,105 +126,11 @@ impl ReferenceList {
         (encoded_trajectory, compression_ratio)
     }
 
-    fn greedy_mrt_expand_debug(
-        &self,
-        st: &[Point],
-        spatial_deviation: f64,
-        r_tree_point_threshold: f64,
-        r_tree: Option<&RTree<PointWithIndexReference>>,
-    ) -> Option<(usize, &[Point])> {
-        let mut rt_match_map = HashMap::new();
-        let spatial_filter: Vec<&[Point]> = match r_tree {
-            Some(tree) => {
-                let lat_d = (r_tree_point_threshold / 111319.9) as f32;
-                let lng_d = r_tree_point_threshold as f32
-                    / (111319.9 * st[0].lat_as_f32().to_radians().cos());
-                tree.locate_in_envelope(&AABB::from_corners(
-                    [
-                        st[0].lat_as_f32() + lat_d as f32,
-                        st[0].lng_as_f32() + lng_d as f32,
-                    ],
-                    [
-                        st[0].lat_as_f32() - lat_d as f32,
-                        st[0].lng_as_f32() - lng_d as f32,
-                    ],
-                ))
-                .map(|x| &self.trajectories[x.index.0][x.index.1..])
-                .collect::<Vec<_>>()
-            }
-            None => self.trajectories.iter().map(|x| &x[..]).collect::<Vec<_>>(),
-        };
-        println!("Len after filter {}", spatial_filter.len());
-
-        let begin_loop_spatial = std::time::Instant::now();
-        for rt in spatial_filter {
-            let mut memoization = HashMap::new();
-            let mut st_last_match = 1;
-            let mut rt_match = HashSet::new();
-            for j in 0..rt.len() - 1 {
-                if max_dtw(&st[..=st_last_match], &rt[j..=j + 1], &mut memoization)
-                    < spatial_deviation
-                {
-                    rt_match.insert((j, j + 1));
-                }
-            }
-            while !rt_match.is_empty() {
-                let mut to_insert = Vec::new();
-                st_last_match += 1;
-                for m in rt_match.iter() {
-                    let &(rt_start, rt_end) = m;
-                    let st_index_check = st_last_match < st.len() - 1;
-                    let rt_index_check = rt_end < rt.len() - 1;
-                    if st_index_check && rt_index_check {
-                        let local_st = &st[..=st_last_match];
-                        let rta = &rt[rt_start..=rt_end];
-                        let rtb = &rt[rt_end..=rt_end + 1];
-                        let rtab = &rt[rt_start..=rt_end + 1];
-                        if max_dtw(local_st, rta, &mut memoization) < spatial_deviation {
-                            to_insert.push((rt_start, rt_end));
-                        }
-                        if max_dtw(local_st, rtb, &mut memoization) < spatial_deviation {
-                            to_insert.push((rt_end, rt_end + 1));
-                        }
-                        if max_dtw(local_st, rtab, &mut memoization) < spatial_deviation {
-                            to_insert.push((rt_start, rt_end + 1));
-                        }
-                    }
-                }
-                if to_insert.is_empty() {
-                    let example_match = rt_match.iter().next().unwrap();
-                    match rt_match_map.get(&st_last_match) {
-                        Some(_) => {}
-                        None => {
-                            rt_match_map
-                                .insert(st_last_match, &rt[example_match.0..=example_match.1]);
-                        }
-                    }
-                    break;
-                } else {
-                    rt_match.clear();
-                    for new_m in to_insert {
-                        rt_match.insert(new_m);
-                    }
-                }
-            }
-        }
-        println!("Spatial loop dur {:2.?}", begin_loop_spatial.elapsed());
-
-        println!("rt_match_map {:#?}", rt_match_map);
-        match rt_match_map
-            .iter()
-            .filter(|&(&k, _)| k != 0)
-            .max_by_key(|&(k, _)| k)
-        {
-            Some((&highest_key_entry, &value)) => Some((highest_key_entry, value)),
-            None => None,
-        }
-    }
     fn greedy_mrt_expand(
         &self,
         st: &[Point],
         spatial_deviation: f64,
+        approx: bool,
         r_tree_point_threshold: f64,
         r_tree: Option<&RTree<PointWithIndexReference>>,
     ) -> Option<(usize, &[Point])> {
@@ -290,8 +160,12 @@ impl ReferenceList {
             let mut st_last_match = 1;
             let mut rt_match = HashSet::new();
             for j in 0..rt.len() - 1 {
-                if max_dtw(&st[..=st_last_match], &rt[j..=j + 1], &mut memoization)
-                    < spatial_deviation
+                if max_dtw(
+                    &st[..=st_last_match],
+                    &rt[j..=j + 1],
+                    &mut memoization,
+                    approx,
+                ) < spatial_deviation
                 {
                     rt_match.insert((j, j + 1));
                 }
@@ -308,13 +182,13 @@ impl ReferenceList {
                         let rta = &rt[rt_start..=rt_end];
                         let rtb = &rt[rt_end..=rt_end + 1];
                         let rtab = &rt[rt_start..=rt_end + 1];
-                        if max_dtw(local_st, rta, &mut memoization) < spatial_deviation {
+                        if max_dtw(local_st, rta, &mut memoization, approx) < spatial_deviation {
                             to_insert.push((rt_start, rt_end));
                         }
-                        if max_dtw(local_st, rtb, &mut memoization) < spatial_deviation {
+                        if max_dtw(local_st, rtb, &mut memoization, approx) < spatial_deviation {
                             to_insert.push((rt_end, rt_end + 1));
                         }
-                        if max_dtw(local_st, rtab, &mut memoization) < spatial_deviation {
+                        if max_dtw(local_st, rtab, &mut memoization, approx) < spatial_deviation {
                             to_insert.push((rt_start, rt_end + 1));
                         }
                     }
