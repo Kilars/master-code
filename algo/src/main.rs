@@ -9,23 +9,24 @@ pub mod rest;
 pub mod spatial_filter;
 
 fn main() -> Result<(), csv::Error> {
+    let n = 10000;
     let conf = Config {
-        n: 10000,
+        n,
         rs: 10,
         compression_ratio: 5,
         spatial_filter: true,
-        approx_dtw: false,
+        dtw_band: 0,
         error_trajectories: 200,
-        error_point: 20,
+        error_point: 5,
     };
     let conf_fast_dtw = Config {
-        n: 10000,
+        n,
         rs: 10,
         compression_ratio: 5,
         spatial_filter: true,
-        approx_dtw: true,
+        dtw_band: 1,
         error_trajectories: 200,
-        error_point: 20,
+        error_point: 5,
     };
     let mut file = std::fs::File::options()
         .create(true)
@@ -35,7 +36,7 @@ fn main() -> Result<(), csv::Error> {
 
     write!(file, "{:?}\n", conf).unwrap();
 
-    for conf in vec![conf_fast_dtw, conf] {
+    for conf in vec![conf, conf_fast_dtw] {
         let begin = std::time::Instant::now();
 
         let res = rest_main(conf);

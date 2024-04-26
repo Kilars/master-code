@@ -1,4 +1,4 @@
-use crate::dtw_band::dtw_band as approx_dtw;
+use crate::dtw_band::{dtw as dtw_normal, dtw_band};
 use crate::max_dtw::max_dtw as slow_dtw;
 use crate::spatial_filter::PointWithIndexReference;
 
@@ -64,21 +64,20 @@ pub struct ReferenceList {
 pub fn max_dtw<'a>(
     st: &'a [Point],
     rt: &'a [Point],
-    memo: &mut HashMap<(&'a [Point], &'a [Point]), f64>,
-    approx: bool,
+    _memo: &mut HashMap<(&'a [Point], &'a [Point]), f64>,
+    band: usize,
 ) -> f64 {
-    if approx {
-        approx_dtw(st, rt)
-    } else {
-        slow_dtw(st, rt, memo)
+    if band == 0 {
+        return dtw_normal(st, rt);
     }
+    dtw_band(st, rt, band)
 }
 impl ReferenceList {
     pub fn encode(
         &self,
         trajectory: &Vec<Point>,
         spatial_deviation: f64,
-        approx: bool,
+        band: usize,
         r_tree_point_threshold: f64,
         r_tree: Option<&RTree<PointWithIndexReference>>,
     ) -> (EncodedTrajectory, f64) {
@@ -93,7 +92,7 @@ impl ReferenceList {
             match self.greedy_mrt_expand(
                 &trajectory[last_indexed_point..],
                 spatial_deviation / 1000.0,
-                approx,
+                band,
                 r_tree_point_threshold,
                 r_tree,
             ) {
@@ -130,7 +129,7 @@ impl ReferenceList {
         &self,
         st: &[Point],
         spatial_deviation: f64,
-        approx: bool,
+        band: usize,
         r_tree_point_threshold: f64,
         r_tree: Option<&RTree<PointWithIndexReference>>,
     ) -> Option<(usize, &[Point])> {
@@ -164,7 +163,7 @@ impl ReferenceList {
                     &st[..=st_last_match],
                     &rt[j..=j + 1],
                     &mut memoization,
-                    approx,
+                    band,
                 ) < spatial_deviation
                 {
                     rt_match.insert((j, j + 1));
@@ -182,13 +181,13 @@ impl ReferenceList {
                         let rta = &rt[rt_start..=rt_end];
                         let rtb = &rt[rt_end..=rt_end + 1];
                         let rtab = &rt[rt_start..=rt_end + 1];
-                        if max_dtw(local_st, rta, &mut memoization, approx) < spatial_deviation {
+                        if max_dtw(local_st, rta, &mut memoization, band) < spatial_deviation {
                             to_insert.push((rt_start, rt_end));
                         }
-                        if max_dtw(local_st, rtb, &mut memoization, approx) < spatial_deviation {
+                        if max_dtw(local_st, rtb, &mut memoization, band) < spatial_deviation {
                             to_insert.push((rt_end, rt_end + 1));
                         }
-                        if max_dtw(local_st, rtab, &mut memoization, approx) < spatial_deviation {
+                        if max_dtw(local_st, rtab, &mut memoization, band) < spatial_deviation {
                             to_insert.push((rt_start, rt_end + 1));
                         }
                     }
