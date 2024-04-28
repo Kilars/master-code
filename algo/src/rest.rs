@@ -119,19 +119,16 @@ fn greedy_mrt_expand<'a>(
     let mut length_match_map = HashMap::new();
 
     for rt in candidate_reference_trajectories {
-        let mut current_rt_matches = HashSet::new();
-
-        // initialize current_rt_matches with all matches for st[0..=1]
-        for j in 0..rt.len() - 1 {
-            if max_dtw(&st[0..=1], &rt[j..=j + 1], band) < spatial_deviation {
-                current_rt_matches.insert((j, j + 1));
-            }
-        }
+        let mut current_rt_matches: HashSet<(usize, usize)> = (0..rt.len() - 1)
+            .into_iter()
+            .filter(|&j| max_dtw(&st[0..=1], &rt[j..=j + 1], band) < spatial_deviation)
+            .map(|j| (j, j + 1))
+            .collect();
 
         let mut matched_st_len = 1;
         while !current_rt_matches.is_empty() {
             matched_st_len += 1;
-            
+
             let expanded_matches: HashSet<(usize, usize)> = current_rt_matches
                 .iter()
                 .filter_map(|&(rt_start, rt_end)| {
