@@ -1,5 +1,6 @@
 use crate::dtw_band::{dtw as dtw_normal, dtw_band};
 use haversine::{distance, Location};
+use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 
 extern crate haversine;
@@ -117,7 +118,6 @@ fn greedy_mrt_expand<'a>(
     band: usize,
 ) -> Option<(usize, &'a [Point])> {
     let mut length_match_map = HashMap::new();
-
     for rt in candidate_reference_trajectories {
         let mut current_rt_matches: HashSet<(usize, usize)> = (0..rt.len() - 1)
             .into_iter()
@@ -128,30 +128,21 @@ fn greedy_mrt_expand<'a>(
         let mut matched_st_len = 1;
         while !current_rt_matches.is_empty() {
             matched_st_len += 1;
-
             let expanded_matches: HashSet<(usize, usize)> = current_rt_matches
                 .iter()
-                .filter_map(|&(rt_start, rt_end)| {
-                    let can_expand_index =
-                        (matched_st_len < st.len() - 1) && (rt_end < rt.len() - 1);
-                    if can_expand_index {
-                        Some(
-                            [
-                                (rt_start, rt_end),
-                                (rt_end, rt_end + 1),
-                                (rt_start, rt_end + 1),
-                            ]
-                            .iter()
-                            .filter(|&&(s, e)| {
-                                max_dtw(&st[..=matched_st_len], &rt[s..=e], band)
-                                    < spatial_deviation
-                            })
-                            .copied()
-                            .collect::<Vec<_>>(),
-                        )
-                    } else {
-                        None
-                    }
+                .filter(|&(_, rt_end)| (matched_st_len < st.len() - 1) && (*rt_end < rt.len() - 1))
+                .map(|&(rt_start, rt_end)| {
+                    [
+                        (rt_start, rt_end),
+                        (rt_end, rt_end + 1),
+                        (rt_start, rt_end + 1),
+                    ]
+                    .iter()
+                    .filter(|&&(s, e)| {
+                        max_dtw(&st[..=matched_st_len], &rt[s..=e], band) < spatial_deviation
+                    })
+                    .copied()
+                    .collect_vec()
                 })
                 .flatten()
                 .collect();
