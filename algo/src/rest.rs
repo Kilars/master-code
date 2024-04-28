@@ -173,12 +173,9 @@ fn greedy_mrt_expand<'a>(
             }
         }
     }
-    match length_match_map
-        .iter()
-        .filter(|&(&k, _)| k != 0)
+
+    length_match_map
+        .into_iter()
         .max_by_key(|&(k, _)| k)
-    {
-        Some((&max_key, &longest_mrt)) => Some((max_key, longest_mrt)),
-        None => None,
-    }
+        .filter(|&(k, _)| k != 0)
 }
