@@ -131,7 +131,8 @@ fn greedy_mrt_expand<'a>(
         let mut matched_st_len = 1;
         while !current_rt_matches.is_empty() {
             matched_st_len += 1;
-            let expanded_matches: Vec<(usize, usize)> = current_rt_matches
+            
+            let expanded_matches: HashSet<(usize, usize)> = current_rt_matches
                 .iter()
                 .filter_map(|&(rt_start, rt_end)| {
                     let can_expand_index =
@@ -166,10 +167,7 @@ fn greedy_mrt_expand<'a>(
                 });
                 break;
             } else {
-                current_rt_matches.clear();
-                for new_match in expanded_matches {
-                    current_rt_matches.insert(new_match);
-                }
+                current_rt_matches = expanded_matches;
             }
         }
     }
