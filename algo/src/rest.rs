@@ -1,6 +1,5 @@
 use crate::dtw_band::{dtw as dtw_normal, dtw_band};
 use haversine::{distance, Location};
-use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 
 extern crate haversine;
@@ -137,12 +136,10 @@ fn greedy_mrt_expand<'a>(
                         (rt_end, rt_end + 1),
                         (rt_start, rt_end + 1),
                     ]
-                    .iter()
-                    .filter(|&&(s, e)| {
+                    .into_iter()
+                    .filter(|&(s, e)| {
                         max_dtw(&st[..=matched_st_len], &rt[s..=e], band) < spatial_deviation
                     })
-                    .copied()
-                    .collect_vec()
                 })
                 .flatten()
                 .collect();
