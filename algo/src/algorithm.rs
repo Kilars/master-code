@@ -1,9 +1,13 @@
-use crate::rest::ReferenceList;
-use crate::spatial_filter::PointWithIndexReference;
 use std::io::{self, Write};
 
+use itertools::Itertools;
 use rstar::RTree;
 use serde::{de, Deserialize};
+
+use crate::{
+    rest::{encode, Point},
+    spatial_filter::PointWithIndexReference,
+};
 
 #[derive(Deserialize, Clone)]
 struct CsvTrajectory {
@@ -40,47 +44,37 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
         .deserialize()
         .take(((conf.rs as f32 / 1000.0) * conf.n as f32) as usize)
         .map(|res| {
-            res.map(|traj: CsvTrajectory| {
-                traj.polyline
-                    .iter()
-                    .map(|&pnt| pnt.into())
-                    .collect::<Vec<_>>()
-            })
+            res.map(|traj: CsvTrajectory| traj.polyline.iter().map(|&pnt| pnt.into()).collect_vec())
         })
         .collect::<Result<Vec<_>, _>>()?;
 
     println!("MRT source size: {}", mrt_source.len());
-    let mut mrt_list = ReferenceList {
-        trajectories: Vec::new(),
-    };
+    let mut mrt_list: Vec<Vec<Point>> = Vec::new();
+
     let mut r_tree: Option<RTree<PointWithIndexReference>> = if conf.spatial_filter {
         Some(RTree::new())
     } else {
         None
     };
     let begin_mrt = std::time::Instant::now();
+
     mrt_source.into_iter().for_each(|t| {
-        let (_, compression_ratio) = mrt_list.encode(
-            &t,
-            conf.error_trajectories as f64,
-            conf.dtw_band,
-            conf.error_point as f64,
-            r_tree.as_ref(),
-        );
+        let (_, compression_ratio) =
+            encode(todo!(), &t, conf.error_trajectories as f64, conf.dtw_band);
         if compression_ratio < conf.compression_ratio as f64 {
             if let Some(mut_tree) = r_tree.as_mut() {
                 for (i, point) in t.iter().enumerate() {
                     mut_tree.insert(PointWithIndexReference {
                         point: point.clone(),
-                        index: (mrt_list.trajectories.len(), i),
+                        index: (mrt_list.len(), i),
                     });
                 }
             }
-            mrt_list.trajectories.push(t);
+            mrt_list.push(t);
         }
     });
 
-    println!("MRT list size: {}", mrt_list.trajectories.len());
+    println!("MRT list size: {}", mrt_list.len());
     println!("MRT time: {:.2?}", begin_mrt.elapsed());
 
     let n_trajectories = csv::Reader::from_path("porto.csv")?
@@ -99,13 +93,7 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
     let mut encoded_trajectories = Vec::new();
     n_trajectories.iter().for_each(|t| {
         io::stdout().flush().unwrap();
-        let (encoded, cr) = mrt_list.encode(
-            &t,
-            conf.error_trajectories as f64,
-            conf.dtw_band,
-            conf.error_point as f64,
-            r_tree.as_ref(),
-        );
+        let (encoded, cr) = encode(todo!(), &t, conf.error_trajectories as f64, conf.dtw_band);
 
         encoded_trajectories.push((encoded, cr));
     });
@@ -118,7 +106,7 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
     Ok(PerformanceMetrics {
         avg_cr,
         avg_mdtw: 6.9,
-        set_size: mrt_list.trajectories.len() as i32,
+        set_size: mrt_list.len() as i32,
         runtime,
     })
 }
