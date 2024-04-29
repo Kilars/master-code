@@ -127,7 +127,7 @@ fn greedy_mrt_expand<'a>(
         let mut matched_st_len = 1;
         while !current_rt_matches.is_empty() {
             matched_st_len += 1;
-            let expanded_matches: HashSet<(usize, usize)> = current_rt_matches
+            current_rt_matches = current_rt_matches
                 .iter()
                 .filter(|&(_, rt_end)| (matched_st_len < st.len() - 1) && (*rt_end < rt.len() - 1))
                 .map(|&(rt_start, rt_end)| {
@@ -143,18 +143,12 @@ fn greedy_mrt_expand<'a>(
                 })
                 .flatten()
                 .collect();
-
-            if expanded_matches.is_empty() {
-                // if no match of the current length is found, insert an arbitrary match
-                length_match_map.entry(matched_st_len).or_insert({
-                    let arbitrary_match = current_rt_matches.iter().next().unwrap();
-                    &rt[arbitrary_match.0..=arbitrary_match.1]
-                });
-                break;
-            } else {
-                current_rt_matches = expanded_matches;
-            }
         }
+
+        length_match_map.entry(matched_st_len).or_insert_with(|| {
+            let arbitrary_match = current_rt_matches.iter().next().unwrap();
+            &rt[arbitrary_match.0..=arbitrary_match.1]
+        });
     }
 
     length_match_map
