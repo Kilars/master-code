@@ -124,6 +124,12 @@ fn greedy_mrt_expand<'a>(
             .map(|j| (j, j + 1))
             .collect();
 
+        current_rt_matches.iter().next().map(|arbitrary_match| {
+            length_match_map
+                .entry(2)
+                .or_insert_with(|| &rt[arbitrary_match.0..=arbitrary_match.1])
+        });
+
         let mut matched_st_len = 1;
         while !current_rt_matches.is_empty() {
             matched_st_len += 1;
