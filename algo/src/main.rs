@@ -39,7 +39,7 @@ fn run_config(conf: Config) -> Result<(), csv::Error> {
 
 fn main() -> Result<(), csv::Error> {
     let config_base = Config {
-        n: (10 as i32).pow(1),
+        n: (10 as i32).pow(2),
         rs: 10,
         compression_ratio: 5,
         spatial_filter: true,
@@ -47,7 +47,7 @@ fn main() -> Result<(), csv::Error> {
         error_trajectories: 200,
         error_point: 5,
     };
-    let rs_seq = vec![100];
+    let rs_seq = vec![5, 10, 20, 50, 100, 200, 500];
 
     for rs in rs_seq {
         let mut conf = config_base.clone();

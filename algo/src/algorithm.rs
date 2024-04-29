@@ -3,8 +3,8 @@ use rstar::RTree;
 use serde::{de, Deserialize};
 
 use crate::{
-    rest::{encode, Point},
-    spatial_filter::{PointWithIndexReference, SpatialQuery},
+    rest::{encode, encode_r_tree, Point},
+    spatial_filter::PointWithIndexReference,
 };
 
 #[derive(Deserialize, Clone)]
@@ -57,18 +57,24 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
     let begin_mrt = std::time::Instant::now();
 
     sample_to_build_reference_set.into_iter().for_each(|t| {
-        let (_, compression_ratio) = encode(
-            reference_set
-                .iter()
-                .map(|t| t.as_slice())
-                .collect_vec()
-                .as_slice(),
-            &t.as_slice(),
-            conf.error_trajectories as f64,
-            conf.dtw_band,
-            r_tree.as_ref(),
-            conf.error_point as f64,
-        );
+        let reference_vec = reference_set.iter().map(|t| t.as_slice()).collect_vec();
+        let (_, compression_ratio) = match &r_tree {
+            Some(tree) => encode_r_tree(
+                reference_vec.as_slice(),
+                &t.as_slice(),
+                conf.error_trajectories as f64,
+                conf.dtw_band,
+                tree,
+                conf.error_point as f64,
+            ),
+            None => encode(
+                reference_vec.as_slice(),
+                &t,
+                conf.error_trajectories as f64,
+                conf.dtw_band,
+            ),
+        };
+
         if compression_ratio < conf.compression_ratio as f64 {
             if let Some(mut_tree) = r_tree.as_mut() {
                 for (i, point) in t.iter().enumerate() {
@@ -87,8 +93,7 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
 
     let n_trajectories: Vec<Vec<Point>> = csv::Reader::from_path("porto.csv")?
         .deserialize()
-        .skip(2)
-        .take(1)
+        .take(conf.n as usize)
         .map(|res| {
             res.map(|traj: CsvTrajectory| {
                 traj.polyline
@@ -101,30 +106,26 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
 
     let mut encoded_cr = Vec::new();
 
+    let final_reference_vectors = reference_set.iter().map(|t| t.as_slice()).collect_vec();
     n_trajectories.iter().for_each(|t| {
-        let candidate_trajectories: Vec<&[Point]> = match &mut r_tree {
-            Some(tree) => tree
-                .points_within_envelope(conf.error_point as f64, t[0].clone())
-                .iter()
-                .map(|PointWithIndexReference { index: (i, j), .. }| &reference_set[*i][*j..])
-                .collect_vec(),
-            None => reference_set.iter().map(|t| t.as_slice()).collect_vec(),
+        let (_, compression_ratio) = match &r_tree {
+            Some(tree) => encode_r_tree(
+                final_reference_vectors.as_slice(),
+                &t.as_slice(),
+                conf.error_trajectories as f64,
+                conf.dtw_band,
+                tree,
+                conf.error_point as f64,
+            ),
+            None => encode(
+                final_reference_vectors.as_slice(),
+                &t,
+                conf.error_trajectories as f64,
+                conf.dtw_band,
+            ),
         };
-        println!("candidate_trajectories {}", candidate_trajectories.len());
-        let (_, cr) = encode(
-            reference_set
-                .iter()
-                .map(|t| t.as_slice())
-                .collect_vec()
-                .as_slice(),
-            &t,
-            conf.error_trajectories as f64,
-            conf.dtw_band,
-            r_tree.as_ref(),
-            conf.error_point as f64,
-        );
 
-        encoded_cr.push(cr);
+        encoded_cr.push(compression_ratio);
     });
 
     let runtime = begin.elapsed();

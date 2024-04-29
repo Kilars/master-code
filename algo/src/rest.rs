@@ -69,8 +69,6 @@ pub fn encode<'a>(
     trajectory: &[Point],
     spatial_deviation: f64,
     band: usize,
-    r_tree: Option<&RTree<PointWithIndexReference>>,
-    spatial_filter_distance: f64,
 ) -> (EncodedTrajectory<'a>, f64) {
     let length = trajectory.len();
     let mut encoded_trajectory = EncodedTrajectory(Vec::new());
@@ -78,32 +76,9 @@ pub fn encode<'a>(
     let mut references = 0;
     let mut direct_points = 0;
 
-    let mut candidate_trajectories: &[&[Point]];
     while last_indexed_point < length - 1 {
-        let r_tree_trajectories: Option<Vec<&[Point]>> = match r_tree {
-            Some(tree) => {
-                let trajectories = tree
-                    .points_within_envelope(
-                        spatial_filter_distance,
-                        trajectory[last_indexed_point].clone(),
-                    )
-                    .iter()
-                    .map(|PointWithIndexReference { index: (i, j), .. }| {
-                        &reference_trajectories[*i][*j..]
-                    })
-                    .collect_vec();
-                Some(trajectories)
-            }
-
-            None => None,
-        };
-        candidate_trajectories = match &r_tree_trajectories {
-            Some(trajectories) => trajectories.as_slice(),
-            None => reference_trajectories,
-        };
-        //spatial deviation from m to k
         match greedy_mrt_expand(
-            candidate_trajectories,
+            reference_trajectories,
             &trajectory[last_indexed_point..],
             spatial_deviation / 1000.0,
             band,
@@ -133,16 +108,71 @@ pub fn encode<'a>(
 
     let compression_ratio = (length as f64 * point_size)
         / ((direct_points as f64 * point_size) + (references as f64 * reference_size));
-    println!(
-        "length {} / direct {} * point_size {} + references {} * reference_size {}, res {}",
-        length, direct_points, point_size, references, reference_size, compression_ratio
-    );
+
+    (encoded_trajectory, compression_ratio)
+}
+pub fn encode_r_tree<'a>(
+    reference_trajectories: &'a [&[Point]],
+    trajectory: &[Point],
+    spatial_deviation: f64,
+    band: usize,
+    r_tree: &RTree<PointWithIndexReference>,
+    spatial_filter_distance: f64,
+) -> (EncodedTrajectory<'a>, f64) {
+    let length = trajectory.len();
+    let mut encoded_trajectory = EncodedTrajectory(Vec::new());
+    let mut last_indexed_point = 0;
+    let mut references = 0;
+    let mut direct_points = 0;
+
+    while last_indexed_point < length - 1 {
+        let candidate_vector = r_tree
+            .points_within_envelope(
+                spatial_filter_distance,
+                trajectory[last_indexed_point].clone(),
+            )
+            .iter()
+            .map(|PointWithIndexReference { index: (i, j), .. }| &reference_trajectories[*i][*j..])
+            .collect_vec();
+
+        //spatial deviation from m to k
+        match greedy_mrt_expand(
+            candidate_vector.as_slice(),
+            &trajectory[last_indexed_point..],
+            spatial_deviation / 1000.0,
+            band,
+        ) {
+            Some((new_last_index, mrt)) => {
+                last_indexed_point += new_last_index;
+                encoded_trajectory.0.push(SubTrajectory::Reference(mrt));
+                references += 1;
+            }
+            None => {
+                encoded_trajectory.0.push(SubTrajectory::Trajectory(
+                    trajectory[last_indexed_point..=last_indexed_point + 1].to_vec(),
+                ));
+                last_indexed_point += 1;
+                direct_points += 1;
+            }
+        }
+    }
+
+    // i32 is 4 bytes
+    let point_size = 4.0;
+    // 8 byte reference
+    let reference_size = 8.0;
+    if direct_points > 0 {
+        direct_points += 1;
+    }
+
+    let compression_ratio = (length as f64 * point_size)
+        / ((direct_points as f64 * point_size) + (references as f64 * reference_size));
 
     (encoded_trajectory, compression_ratio)
 }
 
 fn greedy_mrt_expand<'a>(
-    candidate_reference_trajectories: &'a [&[Point]],
+    candidate_reference_trajectories: &[&'a [Point]],
     st: &[Point],
     spatial_deviation: f64,
     band: usize,
@@ -155,15 +185,14 @@ fn greedy_mrt_expand<'a>(
             .map(|j| (j, j + 1))
             .collect();
 
-        current_rt_matches.iter().next().map(|arbitrary_match| {
-            length_match_map
-                .entry(2)
-                .or_insert_with(|| &rt[arbitrary_match.0..=arbitrary_match.1])
-        });
-
         let mut matched_st_len = 1;
         while !current_rt_matches.is_empty() {
             matched_st_len += 1;
+            current_rt_matches.iter().next().map(|arbitrary_match| {
+                length_match_map
+                    .entry(matched_st_len)
+                    .or_insert_with(|| &rt[arbitrary_match.0..=arbitrary_match.1])
+            });
             current_rt_matches = current_rt_matches
                 .iter()
                 .filter(|&(_, rt_end)| (matched_st_len < st.len() - 1) && (*rt_end < rt.len() - 1))
@@ -180,11 +209,6 @@ fn greedy_mrt_expand<'a>(
                 })
                 .flatten()
                 .collect();
-            current_rt_matches.iter().next().map(|arbitrary_match| {
-                length_match_map
-                    .entry(matched_st_len + 1)
-                    .or_insert_with(|| &rt[arbitrary_match.0..=arbitrary_match.1])
-            });
         }
     }
 
