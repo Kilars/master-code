@@ -57,19 +57,17 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
     let begin_mrt = std::time::Instant::now();
 
     sample_to_build_reference_set.into_iter().for_each(|t| {
-        let candidate_trajectories: Vec<&[Point]> = match &mut r_tree {
-            Some(tree) => tree
-                .points_within_envelope(conf.error_point as f64, t[0].clone())
-                .iter()
-                .map(|PointWithIndexReference { index: (i, j), .. }| &reference_set[*i][*j..])
-                .collect_vec(),
-            None => reference_set.iter().map(|t| t.as_slice()).collect_vec(),
-        };
         let (_, compression_ratio) = encode(
-            candidate_trajectories.as_slice(),
+            reference_set
+                .iter()
+                .map(|t| t.as_slice())
+                .collect_vec()
+                .as_slice(),
             &t.as_slice(),
             conf.error_trajectories as f64,
             conf.dtw_band,
+            r_tree.as_ref(),
+            conf.error_point as f64,
         );
         if compression_ratio < conf.compression_ratio as f64 {
             if let Some(mut_tree) = r_tree.as_mut() {
@@ -89,7 +87,8 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
 
     let n_trajectories: Vec<Vec<Point>> = csv::Reader::from_path("porto.csv")?
         .deserialize()
-        .take(conf.n as usize)
+        .skip(2)
+        .take(1)
         .map(|res| {
             res.map(|traj: CsvTrajectory| {
                 traj.polyline
@@ -111,11 +110,18 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
                 .collect_vec(),
             None => reference_set.iter().map(|t| t.as_slice()).collect_vec(),
         };
+        println!("candidate_trajectories {}", candidate_trajectories.len());
         let (_, cr) = encode(
-            candidate_trajectories.as_slice(),
+            reference_set
+                .iter()
+                .map(|t| t.as_slice())
+                .collect_vec()
+                .as_slice(),
             &t,
             conf.error_trajectories as f64,
             conf.dtw_band,
+            r_tree.as_ref(),
+            conf.error_point as f64,
         );
 
         encoded_cr.push(cr);

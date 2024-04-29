@@ -1,5 +1,8 @@
 use crate::dtw_band::{dtw as dtw_normal, dtw_band};
+use crate::spatial_filter::{PointWithIndexReference, SpatialQuery};
 use haversine::{distance, Location};
+use itertools::Itertools;
+use rstar::RTree;
 use std::collections::{HashMap, HashSet};
 
 extern crate haversine;
@@ -62,10 +65,12 @@ pub fn max_dtw<'a>(st: &'a [Point], rt: &'a [Point], band: usize) -> f64 {
 }
 
 pub fn encode<'a>(
-    candidate_reference_trajectories: &'a [&[Point]],
+    reference_trajectories: &'a [&[Point]],
     trajectory: &[Point],
     spatial_deviation: f64,
     band: usize,
+    r_tree: Option<&RTree<PointWithIndexReference>>,
+    spatial_filter_distance: f64,
 ) -> (EncodedTrajectory<'a>, f64) {
     let length = trajectory.len();
     let mut encoded_trajectory = EncodedTrajectory(Vec::new());
@@ -73,10 +78,32 @@ pub fn encode<'a>(
     let mut references = 0;
     let mut direct_points = 0;
 
+    let mut candidate_trajectories: &[&[Point]];
     while last_indexed_point < length - 1 {
+        let r_tree_trajectories: Option<Vec<&[Point]>> = match r_tree {
+            Some(tree) => {
+                let trajectories = tree
+                    .points_within_envelope(
+                        spatial_filter_distance,
+                        trajectory[last_indexed_point].clone(),
+                    )
+                    .iter()
+                    .map(|PointWithIndexReference { index: (i, j), .. }| {
+                        &reference_trajectories[*i][*j..]
+                    })
+                    .collect_vec();
+                Some(trajectories)
+            }
+
+            None => None,
+        };
+        candidate_trajectories = match &r_tree_trajectories {
+            Some(trajectories) => trajectories.as_slice(),
+            None => reference_trajectories,
+        };
         //spatial deviation from m to k
         match greedy_mrt_expand(
-            candidate_reference_trajectories,
+            candidate_trajectories,
             &trajectory[last_indexed_point..],
             spatial_deviation / 1000.0,
             band,
@@ -106,6 +133,10 @@ pub fn encode<'a>(
 
     let compression_ratio = (length as f64 * point_size)
         / ((direct_points as f64 * point_size) + (references as f64 * reference_size));
+    println!(
+        "length {} / direct {} * point_size {} + references {} * reference_size {}, res {}",
+        length, direct_points, point_size, references, reference_size, compression_ratio
+    );
 
     (encoded_trajectory, compression_ratio)
 }
