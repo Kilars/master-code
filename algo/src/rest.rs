@@ -61,8 +61,8 @@ pub fn max_dtw<'a>(st: &'a [Point], rt: &'a [Point], band: usize) -> f64 {
     dtw_band(st, rt, band)
 }
 
-pub fn encode<'a>(
-    candidate_reference_trajectories: &'a [&[Point]],
+pub fn encode<'a, T: AsRef<[Point]>>(
+    candidate_reference_trajectories: &'a [T],
     trajectory: &[Point],
     spatial_deviation: f64,
     band: usize,
@@ -110,14 +110,14 @@ pub fn encode<'a>(
     (encoded_trajectory, compression_ratio)
 }
 
-fn greedy_mrt_expand<'a>(
-    candidate_reference_trajectories: &'a [&[Point]],
+fn greedy_mrt_expand<'a, T: AsRef<[Point]>>(
+    candidate_reference_trajectories: &'a [T],
     st: &[Point],
     spatial_deviation: f64,
     band: usize,
 ) -> Option<(usize, &'a [Point])> {
     let mut length_match_map = HashMap::new();
-    for rt in candidate_reference_trajectories {
+    for rt in candidate_reference_trajectories.iter().map(AsRef::as_ref) {
         let mut current_rt_matches: HashSet<(usize, usize)> = (0..rt.len() - 1)
             .into_iter()
             .filter(|&j| max_dtw(&st[0..=1], &rt[j..=j + 1], band) < spatial_deviation)

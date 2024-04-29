@@ -56,11 +56,19 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
     } else {
         None
     };
+
+    let candidate_reference_trajectories_slice: Vec<&[Point]> = todo!();
+    let candidate_reference_trajectories_vec: Vec<Vec<Point>> = todo!();
+
     let begin_mrt = std::time::Instant::now();
 
     mrt_source.into_iter().for_each(|t| {
-        let (_, compression_ratio) =
-            encode(todo!(), &t, conf.error_trajectories as f64, conf.dtw_band);
+        let (_, compression_ratio) = encode(
+            &candidate_reference_trajectories_slice,
+            &t,
+            conf.error_trajectories as f64,
+            conf.dtw_band,
+        );
         if compression_ratio < conf.compression_ratio as f64 {
             if let Some(mut_tree) = r_tree.as_mut() {
                 for (i, point) in t.iter().enumerate() {
@@ -93,7 +101,12 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
     let mut encoded_trajectories = Vec::new();
     n_trajectories.iter().for_each(|t| {
         io::stdout().flush().unwrap();
-        let (encoded, cr) = encode(todo!(), &t, conf.error_trajectories as f64, conf.dtw_band);
+        let (encoded, cr) = encode(
+            &candidate_reference_trajectories_vec,
+            &t,
+            conf.error_trajectories as f64,
+            conf.dtw_band,
+        );
 
         encoded_trajectories.push((encoded, cr));
     });
