@@ -143,12 +143,12 @@ fn greedy_mrt_expand<'a>(
                 })
                 .flatten()
                 .collect();
+            current_rt_matches.iter().next().map(|arbitrary_match| {
+                length_match_map
+                    .entry(matched_st_len + 1)
+                    .or_insert_with(|| &rt[arbitrary_match.0..=arbitrary_match.1])
+            });
         }
-
-        length_match_map.entry(matched_st_len).or_insert_with(|| {
-            let arbitrary_match = current_rt_matches.iter().next().unwrap();
-            &rt[arbitrary_match.0..=arbitrary_match.1]
-        });
     }
 
     length_match_map
