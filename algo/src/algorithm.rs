@@ -3,7 +3,7 @@ use rstar::RTree;
 use serde::{de, Deserialize};
 
 use crate::{
-    rest::{encode, encode_r_tree, Point},
+    rest::{encode, Point},
     spatial_filter::PointWithIndexReference,
 };
 
@@ -58,22 +58,14 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
 
     sample_to_build_reference_set.into_iter().for_each(|t| {
         let reference_vec = reference_set.iter().map(|t| t.as_slice()).collect_vec();
-        let (_, compression_ratio) = match &r_tree {
-            Some(tree) => encode_r_tree(
-                reference_vec.as_slice(),
-                &t.as_slice(),
-                conf.error_trajectories as f64,
-                conf.dtw_band,
-                tree,
-                conf.error_point as f64,
-            ),
-            None => encode(
-                reference_vec.as_slice(),
-                &t,
-                conf.error_trajectories as f64,
-                conf.dtw_band,
-            ),
-        };
+        let (_, compression_ratio) = encode(
+            reference_vec.as_slice(),
+            &t.as_slice(),
+            conf.error_trajectories as f64,
+            conf.dtw_band,
+            r_tree.as_ref(),
+            conf.error_point as f64,
+        );
 
         if compression_ratio < conf.compression_ratio as f64 {
             if let Some(mut_tree) = r_tree.as_mut() {
@@ -108,29 +100,21 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
 
     let final_reference_vectors = reference_set.iter().map(|t| t.as_slice()).collect_vec();
     n_trajectories.iter().for_each(|t| {
-        let (_, compression_ratio) = match &r_tree {
-            Some(tree) => encode_r_tree(
-                final_reference_vectors.as_slice(),
-                &t.as_slice(),
-                conf.error_trajectories as f64,
-                conf.dtw_band,
-                tree,
-                conf.error_point as f64,
-            ),
-            None => encode(
-                final_reference_vectors.as_slice(),
-                &t,
-                conf.error_trajectories as f64,
-                conf.dtw_band,
-            ),
-        };
+        let (encoded_trajectory, compression_ratio) = encode(
+            final_reference_vectors.as_slice(),
+            &t.as_slice(),
+            conf.error_trajectories as f64,
+            conf.dtw_band,
+            r_tree.as_ref(),
+            conf.error_point as f64,
+        );
 
-        encoded_cr.push(compression_ratio);
+        encoded_cr.push((encoded_trajectory, compression_ratio));
     });
 
     let runtime = begin.elapsed();
 
-    let avg_cr = encoded_cr.iter().sum::<f64>() / encoded_cr.len() as f64;
+    let avg_cr = encoded_cr.iter().map(|(_, cr)| cr).sum::<f64>() / encoded_cr.len() as f64;
 
     println!("Reference set size: {}", reference_set.len());
     Ok(PerformanceMetrics {

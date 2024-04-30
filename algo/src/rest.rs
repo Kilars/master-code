@@ -69,54 +69,7 @@ pub fn encode<'a>(
     trajectory: &[Point],
     spatial_deviation: f64,
     band: usize,
-) -> (EncodedTrajectory<'a>, f64) {
-    let length = trajectory.len();
-    let mut encoded_trajectory = EncodedTrajectory(Vec::new());
-    let mut last_indexed_point = 0;
-    let mut references = 0;
-    let mut direct_points = 0;
-
-    while last_indexed_point < length - 1 {
-        match greedy_mrt_expand(
-            reference_trajectories,
-            &trajectory[last_indexed_point..],
-            spatial_deviation / 1000.0,
-            band,
-        ) {
-            Some((new_last_index, mrt)) => {
-                last_indexed_point += new_last_index;
-                encoded_trajectory.0.push(SubTrajectory::Reference(mrt));
-                references += 1;
-            }
-            None => {
-                encoded_trajectory.0.push(SubTrajectory::Trajectory(
-                    trajectory[last_indexed_point..=last_indexed_point + 1].to_vec(),
-                ));
-                last_indexed_point += 1;
-                direct_points += 1;
-            }
-        }
-    }
-
-    // i32 is 4 bytes
-    let point_size = 4.0;
-    // 8 byte reference
-    let reference_size = 8.0;
-    if direct_points > 0 {
-        direct_points += 1;
-    }
-
-    let compression_ratio = (length as f64 * point_size)
-        / ((direct_points as f64 * point_size) + (references as f64 * reference_size));
-
-    (encoded_trajectory, compression_ratio)
-}
-pub fn encode_r_tree<'a>(
-    reference_trajectories: &'a [&[Point]],
-    trajectory: &[Point],
-    spatial_deviation: f64,
-    band: usize,
-    r_tree: &RTree<PointWithIndexReference>,
+    r_tree: Option<&RTree<PointWithIndexReference>>,
     spatial_filter_distance: f64,
 ) -> (EncodedTrajectory<'a>, f64) {
     let length = trajectory.len();
@@ -126,14 +79,19 @@ pub fn encode_r_tree<'a>(
     let mut direct_points = 0;
 
     while last_indexed_point < length - 1 {
-        let candidate_vector = r_tree
-            .points_within_envelope(
-                spatial_filter_distance,
-                trajectory[last_indexed_point].clone(),
-            )
-            .iter()
-            .map(|PointWithIndexReference { index: (i, j), .. }| &reference_trajectories[*i][*j..])
-            .collect_vec();
+        let candidate_vector = match r_tree {
+            Some(tree) => tree
+                .points_within_envelope(
+                    spatial_filter_distance,
+                    trajectory[last_indexed_point].clone(),
+                )
+                .iter()
+                .map(|PointWithIndexReference { index: (i, j), .. }| {
+                    &reference_trajectories[*i][*j..]
+                })
+                .collect_vec(),
+            None => reference_trajectories.to_vec(),
+        };
 
         //spatial deviation from m to k
         match greedy_mrt_expand(
