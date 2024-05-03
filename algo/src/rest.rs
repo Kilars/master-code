@@ -152,9 +152,9 @@ fn greedy_mrt_expand<'a>(
                     .or_insert_with(|| &rt[arbitrary_match.0..=arbitrary_match.1])
             });
             current_rt_matches = current_rt_matches
-                .iter()
-                .filter(|&(_, rt_end)| (matched_st_len < st.len() - 1) && (*rt_end < rt.len() - 1))
-                .map(|&(rt_start, rt_end)| {
+                .into_iter()
+                .filter(|&(_, rt_end)| (matched_st_len < st.len() - 1) && (rt_end < rt.len() - 1))
+                .map(|(rt_start, rt_end)| {
                     [
                         (rt_start, rt_end),
                         (rt_end, rt_end + 1),
@@ -170,8 +170,5 @@ fn greedy_mrt_expand<'a>(
         }
     }
 
-    length_match_map
-        .into_iter()
-        .max_by_key(|&(k, _)| k)
-        .filter(|&(k, _)| k != 0)
+    length_match_map.into_iter().max_by_key(|&(k, _)| k)
 }
