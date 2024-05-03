@@ -4,6 +4,7 @@ use std::io::Write;
 pub mod algorithm;
 pub mod dtw_band;
 pub mod max_dtw;
+pub mod plot;
 pub mod rest;
 pub mod spatial_filter;
 
@@ -39,8 +40,8 @@ fn run_config(conf: Config) -> Result<(), csv::Error> {
 
 fn main() -> Result<(), csv::Error> {
     let config_base = Config {
-        n: 100000,
-        rs: 1000,
+        n: 10000,
+        rs: 100,
         compression_ratio: 5,
         spatial_filter: true,
         dtw_band: 0,

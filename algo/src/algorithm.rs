@@ -6,6 +6,7 @@ use rstar::RTree;
 use serde::{de, Deserialize};
 
 use crate::{
+    plot::graph_trajectory,
     rest::{encode, Point},
     spatial_filter::{PointWithIndexReference, SpatialQuery},
 };
@@ -149,6 +150,7 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
 
     let n_trajectories: Vec<Vec<Point>> = csv::Reader::from_path("porto.csv")?
         .deserialize()
+        .skip(1000)
         .take(conf.n as usize)
         .map(|res| {
             res.map(|traj: CsvTrajectory| {
@@ -162,8 +164,11 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
 
     let mut encoded_cr = Vec::new();
 
+    println!("b4 final reference vectors");
     let final_reference_vectors = reference_set.iter().map(|t| t.as_slice()).collect_vec();
+    let mut index = 0;
     n_trajectories.iter().for_each(|t| {
+        print!("\r{} len: {}", index, t.len());
         let (encoded_trajectory, compression_ratio) = encode(
             final_reference_vectors.as_slice(),
             &t.as_slice(),
@@ -173,7 +178,17 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
             conf.error_point as f64,
         );
 
+        std::io::stdout().flush().unwrap();
+        if index > 1000 && index < 1010 {
+            let _ = graph_trajectory(
+                format!("plots/new_{}.png", index),
+                encoded_trajectory.clone(),
+                t.to_vec(),
+            );
+        }
+
         encoded_cr.push((encoded_trajectory, compression_ratio));
+        index += 1;
     });
 
     let runtime = begin.elapsed();
