@@ -57,27 +57,35 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
     let begin_mrt = std::time::Instant::now();
 
     let mut i = 1;
+    let mut runtime_file = std::fs::File::options()
+        .create(true)
+        .append(true)
+        .open("out/runtime_index.txt")
+        .expect("Failed to open or create the file");
+
     let mut file = std::fs::File::options()
         .create(true)
         .append(true)
         .open("out/set_size.txt")
         .expect("Failed to open or create the file");
+
     sample_to_build_reference_set.into_iter().for_each(|t| {
-        let candidate_vector = match r_tree.clone() {
+        let length = t.len();
+        let candidate_vectors = match r_tree.clone() {
             Some(tree) => tree
                 .points_within_envelope(conf.error_point as f64, t[0].clone())
                 .iter()
                 .map(|PointWithIndexReference { index: (i, j), .. }| &reference_set[*i][*j..])
-                .collect_vec(),
-            None => reference_set.iter().map(|t| t.as_slice()).collect_vec(),
+                .collect_vec()
+                .len(),
+            None => reference_set
+                .iter()
+                .map(|t| t.as_slice())
+                .collect_vec()
+                .len(),
         };
-        print!(
-            "\r index: {}, minutes: {:.2}, length {}, candidates: {}   ",
-            i,
-            begin_mrt.elapsed().as_secs_f64() / 60.0,
-            t.len(),
-            candidate_vector.len()
-        );
+
+        let begin_local = std::time::Instant::now();
 
         let reference_vec = reference_set.iter().map(|t| t.as_slice()).collect_vec();
         let (_, compression_ratio) = encode(
@@ -101,6 +109,15 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
             reference_set.push(t);
         }
 
+        let _ = write!(
+            runtime_file,
+            "{},{:.2},{},{},{},\n",
+            i,
+            begin_mrt.elapsed().as_secs_f64() / 60.0,
+            length,
+            candidate_vectors,
+            begin_local.elapsed().as_secs_f64()
+        );
         i += 1;
         if i % 20000 == 0 {
             let _file_write_res = write!(
