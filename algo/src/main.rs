@@ -13,9 +13,8 @@ fn run_config(conf: Config) -> Result<(), csv::Error> {
         .append(true)
         .open("out/output.txt")
         .expect("Failed to open or create the file");
-    let only_set = true;
 
-    let res = rest_main(conf.clone(), only_set);
+    let res = rest_main(conf.clone());
 
     match res {
         Ok(res) => {
@@ -40,7 +39,7 @@ fn run_config(conf: Config) -> Result<(), csv::Error> {
 
 fn main() -> Result<(), csv::Error> {
     let config_base = Config {
-        n: (10 as i32).pow(4),
+        n: (10 as i32).pow(6),
         rs: 10,
         compression_ratio: 5,
         spatial_filter: true,

@@ -5,7 +5,7 @@ use std::io::Write;
 
 use crate::{
     rest::{encode, Point},
-    spatial_filter::PointWithIndexReference,
+    spatial_filter::{PointWithIndexReference, SpatialQuery},
 };
 
 #[derive(Deserialize, Clone)]
@@ -36,7 +36,7 @@ pub struct PerformanceMetrics {
     pub runtime: std::time::Duration,
 }
 
-pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv::Error> {
+pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
     let begin = std::time::Instant::now();
     let sample_to_build_reference_set: Vec<Vec<Point>> = csv::Reader::from_path("porto.csv")?
         .deserialize()
@@ -56,7 +56,29 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
     };
     let begin_mrt = std::time::Instant::now();
 
+    let mut i = 1;
+    let mut file = std::fs::File::options()
+        .create(true)
+        .append(true)
+        .open("out/set_size.txt")
+        .expect("Failed to open or create the file");
     sample_to_build_reference_set.into_iter().for_each(|t| {
+        let candidate_vector = match r_tree.clone() {
+            Some(tree) => tree
+                .points_within_envelope(conf.error_point as f64, t[0].clone())
+                .iter()
+                .map(|PointWithIndexReference { index: (i, j), .. }| &reference_set[*i][*j..])
+                .collect_vec(),
+            None => reference_set.iter().map(|t| t.as_slice()).collect_vec(),
+        };
+        print!(
+            "\r index: {}, minutes: {:.2}, length {}, candidates: {}   ",
+            i,
+            begin_mrt.elapsed().as_secs_f64() / 60.0,
+            t.len(),
+            candidate_vector.len()
+        );
+
         let reference_vec = reference_set.iter().map(|t| t.as_slice()).collect_vec();
         let (_, compression_ratio) = encode(
             reference_vec.as_slice(),
@@ -78,35 +100,24 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
             }
             reference_set.push(t);
         }
+
+        i += 1;
+        if i % 20000 == 0 {
+            let _file_write_res = write!(
+                file,
+                "{},{},{},{},{},{},\n",
+                (((conf.rs as f32 / 1000.0) * conf.n as f32) as usize),
+                reference_set.len(),
+                conf.spatial_filter,
+                conf.error_trajectories,
+                conf.error_point,
+                begin_mrt.elapsed().as_secs_f64(),
+            );
+        }
     });
 
     println!("MRT list size: {}", reference_set.len());
     println!("MRT time: {:.2?}", begin_mrt.elapsed());
-
-    let mut file = std::fs::File::options()
-        .create(true)
-        .append(true)
-        .open("out/set_size.txt")
-        .expect("Failed to open or create the file");
-
-    let _file_write_res = write!(
-        file,
-        "{},{},{},{},{},{},\n",
-        (((conf.rs as f32 / 1000.0) * conf.n as f32) as usize),
-        reference_set.len(),
-        conf.spatial_filter,
-        conf.error_trajectories,
-        conf.error_point,
-        begin_mrt.elapsed().as_secs_f64(),
-    );
-
-    if only_set {
-        return Ok(PerformanceMetrics {
-            avg_cr: -1.0,
-            set_size: reference_set.len() as i32,
-            runtime: begin_mrt.elapsed(),
-        });
-    }
 
     let n_trajectories: Vec<Vec<Point>> = csv::Reader::from_path("porto.csv")?
         .deserialize()
