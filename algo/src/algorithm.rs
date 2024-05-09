@@ -4,7 +4,7 @@ use serde::{de, Deserialize};
 use std::io::Write;
 
 use crate::{
-    rest::{encode, Point},
+    rest::{encode, Point, SubTrajectory},
     spatial_filter::{PointWithIndexReference, SpatialQuery},
 };
 
@@ -70,6 +70,8 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
         .expect("Failed to open or create the file");
 
     sample_to_build_reference_set.into_iter().for_each(|t| {
+        let mut foo = 0;
+        let mut bar = 0;
         let length = t.len();
         let candidate_vectors = match r_tree.clone() {
             Some(tree) => tree
@@ -88,7 +90,7 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
         let begin_local = std::time::Instant::now();
 
         let reference_vec = reference_set.iter().map(|t| t.as_slice()).collect_vec();
-        let (_, compression_ratio) = encode(
+        let (encoded, compression_ratio) = encode(
             reference_vec.as_slice(),
             &t.as_slice(),
             conf.error_trajectories as f64,
@@ -96,6 +98,10 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
             r_tree.as_ref(),
             conf.error_point as f64,
         );
+        encoded.0.iter().for_each(|encoded_seq| match encoded_seq {
+            SubTrajectory::Reference(_) => foo += 1,
+            SubTrajectory::Trajectory(_) => bar += 1,
+        });
 
         if compression_ratio < conf.compression_ratio as f64 {
             if let Some(mut_tree) = r_tree.as_mut() {
@@ -111,11 +117,13 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
 
         let _ = write!(
             runtime_file,
-            "{},{:.2},{},{},{},\n",
+            "{},{:.2},{},{},{},{},{}\n",
             i,
             begin_mrt.elapsed().as_secs_f64() / 60.0,
             length,
             candidate_vectors,
+            foo,
+            bar,
             begin_local.elapsed().as_secs_f64()
         );
         i += 1;

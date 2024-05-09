@@ -39,7 +39,7 @@ fn run_config(conf: Config) -> Result<(), csv::Error> {
 
 fn main() -> Result<(), csv::Error> {
     let config_base = Config {
-        n: 200,
+        n: 20000,
         rs: 10,
         compression_ratio: 5,
         spatial_filter: true,
