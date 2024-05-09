@@ -94,9 +94,9 @@ pub fn encode<'a>(
         };
 
         //spatial deviation from m to k
-        match greedy_mrt_expand(
-            candidate_vector.as_slice(),
+        match greedy_mrt_search(
             &trajectory[last_indexed_point..],
+            candidate_vector.as_slice(),
             spatial_deviation / 1000.0,
             band,
         ) {
@@ -129,32 +129,42 @@ pub fn encode<'a>(
     (encoded_trajectory, compression_ratio)
 }
 
-fn greedy_mrt_expand<'a>(
-    candidate_reference_trajectories: &[&'a [Point]],
-    st: &[Point],
-    spatial_deviation: f64,
-    band: usize,
+fn greedy_mrt_search<'a>(
+    trajectory: &[Point],
+    reference_trajectories: &[&'a [Point]],
+    max_deviation: f64,
+    dtw_band: usize,
 ) -> Option<(usize, &'a [Point])> {
-    let mut length_match_map = HashMap::new();
-    for rt in candidate_reference_trajectories {
-        let mut current_rt_matches: HashSet<(usize, usize)> = (0..rt.len() - 1)
+    let mut subtraj_mrt_map = HashMap::new();
+
+    for reference_trajectory in reference_trajectories {
+        let mut current_mrts: HashSet<(usize, usize)> = (0..reference_trajectory.len() - 1)
             .into_iter()
-            .filter(|&j| max_dtw(&st[0..=1], &rt[j..=j + 1], band) < spatial_deviation)
+            .filter(|&j| {
+                max_dtw(
+                    &trajectory[0..=1],
+                    &reference_trajectory[j..=j + 1],
+                    dtw_band,
+                ) < max_deviation
+            })
             .map(|j| (j, j + 1))
             .collect();
 
-        let mut matched_st_len = 1;
-        while !current_rt_matches.is_empty() {
-            matched_st_len += 1;
-            current_rt_matches.iter().next().map(|arbitrary_match| {
-                length_match_map
-                    .entry(matched_st_len)
-                    .or_insert_with(|| &rt[arbitrary_match.0..=arbitrary_match.1])
+        let mut trajectory_index = 1;
+        while !current_mrts.is_empty() {
+            trajectory_index += 1;
+            current_mrts.iter().next().map(|arbitrary_match| {
+                subtraj_mrt_map
+                    .entry(trajectory_index)
+                    .or_insert_with(|| &reference_trajectory[arbitrary_match.0..=arbitrary_match.1])
             });
-            current_rt_matches = current_rt_matches
+            current_mrts = current_mrts
                 .into_iter()
-                .filter(|&(_, rt_end)| (matched_st_len < st.len() - 1) && (rt_end < rt.len() - 1))
-                .map(|(rt_start, rt_end)| {
+                .filter(|&(_, rt_end)| {
+                    (trajectory_index < trajectory.len() - 1)
+                        && (rt_end < reference_trajectory.len() - 1)
+                })
+                .flat_map(|(rt_start, rt_end)| {
                     [
                         (rt_start, rt_end),
                         (rt_end, rt_end + 1),
@@ -162,13 +172,16 @@ fn greedy_mrt_expand<'a>(
                     ]
                     .into_iter()
                     .filter(|&(s, e)| {
-                        max_dtw(&st[..=matched_st_len], &rt[s..=e], band) < spatial_deviation
+                        max_dtw(
+                            &trajectory[..=trajectory_index],
+                            &reference_trajectory[s..=e],
+                            dtw_band,
+                        ) < max_deviation
                     })
                 })
-                .flatten()
                 .collect();
         }
     }
 
-    length_match_map.into_iter().max_by_key(|&(k, _)| k)
+    subtraj_mrt_map.into_iter().max_by_key(|&(k, _)| k)
 }

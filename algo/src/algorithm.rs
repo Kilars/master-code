@@ -1,6 +1,7 @@
 use itertools::Itertools;
 use rstar::RTree;
 use serde::{de, Deserialize};
+use std::io::Write;
 
 use crate::{
     rest::{encode, Point},
@@ -31,12 +32,11 @@ pub struct Config {
 #[derive(Debug)]
 pub struct PerformanceMetrics {
     pub avg_cr: f64,
-    pub avg_mdtw: f64,
     pub set_size: i32,
     pub runtime: std::time::Duration,
 }
 
-pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
+pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv::Error> {
     let begin = std::time::Instant::now();
     let sample_to_build_reference_set: Vec<Vec<Point>> = csv::Reader::from_path("porto.csv")?
         .deserialize()
@@ -83,6 +83,31 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
     println!("MRT list size: {}", reference_set.len());
     println!("MRT time: {:.2?}", begin_mrt.elapsed());
 
+    let mut file = std::fs::File::options()
+        .create(true)
+        .append(true)
+        .open("out/set_size.txt")
+        .expect("Failed to open or create the file");
+
+    let _file_write_res = write!(
+        file,
+        "{},{},{},{},{},{},\n",
+        (((conf.rs as f32 / 1000.0) * conf.n as f32) as usize),
+        reference_set.len(),
+        conf.spatial_filter,
+        conf.error_trajectories,
+        conf.error_point,
+        begin_mrt.elapsed().as_secs_f64(),
+    );
+
+    if only_set {
+        return Ok(PerformanceMetrics {
+            avg_cr: -1.0,
+            set_size: reference_set.len() as i32,
+            runtime: begin_mrt.elapsed(),
+        });
+    }
+
     let n_trajectories: Vec<Vec<Point>> = csv::Reader::from_path("porto.csv")?
         .deserialize()
         .take(conf.n as usize)
@@ -119,7 +144,6 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
     println!("Reference set size: {}", reference_set.len());
     Ok(PerformanceMetrics {
         avg_cr,
-        avg_mdtw: 6.9,
         set_size: reference_set.len() as i32,
         runtime,
     })
