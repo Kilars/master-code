@@ -1,4 +1,5 @@
 use crate::dtw_band::{dtw as dtw_normal, dtw_band};
+use crate::max_dtw::max_dtw as og_dtw;
 use crate::spatial_filter::{PointWithIndexReference, SpatialQuery};
 use haversine::{distance, Location};
 use itertools::Itertools;
@@ -57,11 +58,12 @@ pub enum SubTrajectory<'a> {
 #[derive(Clone)]
 pub struct EncodedTrajectory<'a>(pub Vec<SubTrajectory<'a>>);
 
-pub fn max_dtw<'a>(st: &'a [Point], rt: &'a [Point], band: usize) -> f64 {
-    if band == 0 {
-        return dtw_normal(st, rt);
-    }
-    dtw_band(st, rt, band)
+pub fn max_dtw<'a>(
+    st: &'a [Point],
+    rt: &'a [Point],
+    memo: &mut HashMap<(&'a [Point], &'a [Point]), f64>,
+) -> f64 {
+    og_dtw(st, rt, memo)
 }
 
 pub fn encode<'a>(
@@ -138,13 +140,14 @@ fn greedy_mrt_search<'a>(
     let mut subtraj_mrt_map = HashMap::new();
 
     for reference_trajectory in reference_trajectories {
+        let mut memo = HashMap::new();
         let mut current_mrts: HashSet<(usize, usize)> = (0..reference_trajectory.len() - 1)
             .into_iter()
             .filter(|&j| {
                 max_dtw(
                     &trajectory[0..=1],
                     &reference_trajectory[j..=j + 1],
-                    dtw_band,
+                    &mut memo,
                 ) < max_deviation
             })
             .map(|j| (j, j + 1))
@@ -159,7 +162,8 @@ fn greedy_mrt_search<'a>(
                     .or_insert_with(|| &reference_trajectory[arbitrary_match.0..=arbitrary_match.1])
             });
             current_mrts = current_mrts
-                .into_iter()
+                .iter()
+                .cloned()
                 .filter(|&(_, rt_end)| {
                     (trajectory_index < trajectory.len() - 1)
                         && (rt_end < reference_trajectory.len() - 1)
@@ -170,14 +174,16 @@ fn greedy_mrt_search<'a>(
                         (rt_end, rt_end + 1),
                         (rt_start, rt_end + 1),
                     ]
-                    .into_iter()
+                    .iter()
+                    .cloned()
                     .filter(|&(s, e)| {
                         max_dtw(
                             &trajectory[..=trajectory_index],
                             &reference_trajectory[s..=e],
-                            dtw_band,
+                            &mut memo,
                         ) < max_deviation
                     })
+                    .collect_vec()
                 })
                 .collect();
         }

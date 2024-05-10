@@ -1,7 +1,9 @@
 use itertools::Itertools;
+
+use std::io::{self, Write};
+
 use rstar::RTree;
 use serde::{de, Deserialize};
-use std::io::Write;
 
 use crate::{
     rest::{encode, Point},
@@ -56,7 +58,7 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
     };
     let begin_mrt = std::time::Instant::now();
 
-    let mut i = 1;
+    let mut i = 0;
     let mut runtime_file = std::fs::File::options()
         .create(true)
         .append(true)
@@ -108,21 +110,21 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
             reference_set.push(t);
         }
 
-        let _ = write!(
-            runtime_file,
-            "{},{:.2},{},{},{},\n",
-            i,
-            begin_mrt.elapsed().as_secs_f64() / 60.0,
-            length,
-            candidate_vectors,
-            begin_local.elapsed().as_secs_f64()
-        );
+        // let _ = write!(
+        //     runtime_file,
+        //     "{},{:.2},{},{},{},\n",
+        //     i,
+        //     begin_mrt.elapsed().as_secs_f64() / 60.0,
+        //     length,
+        //     candidate_vectors,
+        //     begin_local.elapsed().as_secs_f64()
+        // );
         i += 1;
         if i % 20000 == 0 {
             let _file_write_res = write!(
                 file,
                 "{},{},{},{},{},{},\n",
-                (((conf.rs as f32 / 1000.0) * conf.n as f32) as usize),
+                i,
                 reference_set.len(),
                 conf.spatial_filter,
                 conf.error_trajectories,
@@ -130,6 +132,8 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
                 begin_mrt.elapsed().as_secs_f64(),
             );
         }
+        // print!("\r {}", i);
+        // std::io::stdout().flush().unwrap();
     });
 
     println!("MRT list size: {}", reference_set.len());
