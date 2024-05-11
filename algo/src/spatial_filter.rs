@@ -32,9 +32,10 @@ impl SpatialQuery for RTree<PointWithIndexReference> {
         envelope_size: f64,
         center_point: Point,
     ) -> Vec<&PointWithIndexReference> {
-        let lat_d = (envelope_size / 111319.9) as f32;
+        let dia_from_center = envelope_size / 2.0;
+        let lat_d = (dia_from_center / 111319.9) as f32;
         let lng_d =
-            envelope_size as f32 / (111319.9 * center_point.lat_as_f32().to_radians().cos());
+            dia_from_center as f32 / (111319.9 * center_point.lat_as_f32().to_radians().cos());
         self.locate_in_envelope(&AABB::from_corners(
             [
                 center_point.lat_as_f32() + lat_d as f32,
