@@ -120,7 +120,7 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
         //     begin_local.elapsed().as_secs_f64()
         // );
         i += 1;
-        if i % 20000 == 0 {
+        if i % 5000 == 0 {
             let _file_write_res = write!(
                 file,
                 "{},{},{},{},{},{},\n",
