@@ -38,7 +38,7 @@ pub struct PerformanceMetrics {
     pub runtime: std::time::Duration,
 }
 
-pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
+pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv::Error> {
     let begin = std::time::Instant::now();
     let sample_to_build_reference_set: Vec<Vec<Point>> = csv::Reader::from_path("porto.csv")?
         .deserialize()
@@ -138,6 +138,14 @@ pub fn rest_main(conf: Config) -> Result<PerformanceMetrics, csv::Error> {
 
     println!("MRT list size: {}", reference_set.len());
     println!("MRT time: {:.2?}", begin_mrt.elapsed());
+
+    if only_set {
+        return Ok(PerformanceMetrics {
+            avg_cr: 0.0,
+            set_size: reference_set.len() as i32,
+            runtime: begin.elapsed(),
+        });
+    }
 
     let n_trajectories: Vec<Vec<Point>> = csv::Reader::from_path("porto.csv")?
         .deserialize()
