@@ -2,6 +2,7 @@ use crate::algorithm::{rest_main, Config};
 use std::io::Write;
 
 pub mod algorithm;
+pub mod dp;
 pub mod dtw_band;
 pub mod max_dtw;
 pub mod plot;
@@ -15,7 +16,7 @@ fn run_config(conf: Config) -> Result<(), csv::Error> {
         .open("out/output.txt")
         .expect("Failed to open or create the file");
 
-    let res = rest_main(conf.clone(), true);
+    let res = rest_main(conf.clone(), false);
 
     match res {
         Ok(res) => {
@@ -41,14 +42,14 @@ fn run_config(conf: Config) -> Result<(), csv::Error> {
 fn main() -> Result<(), csv::Error> {
     let config_base = Config {
         n: 10000,
-        rs: 100,
+        rs: 500,
         compression_ratio: 5,
         spatial_filter: true,
         dtw_band: 0,
         error_trajectories: 200,
         error_point: 5,
     };
-    let rs_seq = vec![15, 20, 25, 30, 10, 5];
+    let rs_seq = vec![15];
 
     for rs in rs_seq {
         let mut conf = config_base.clone();

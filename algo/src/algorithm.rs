@@ -150,7 +150,6 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
 
     let n_trajectories: Vec<Vec<Point>> = csv::Reader::from_path("porto.csv")?
         .deserialize()
-        .skip(1000)
         .take(conf.n as usize)
         .map(|res| {
             res.map(|traj: CsvTrajectory| {
@@ -179,7 +178,7 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
         );
 
         std::io::stdout().flush().unwrap();
-        if index > 1000 && index < 1010 {
+        if index > 5000 && index < 5030 {
             let _ = graph_trajectory(
                 format!("plots/new_{}.png", index),
                 encoded_trajectory.clone(),

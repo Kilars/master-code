@@ -27,7 +27,6 @@ pub fn graph_trajectory(
     let margin = |max: i32, min: i32| (max - min) / 10;
     let lat_margin = margin(max_lat, min_lat);
     let lng_margin = margin(max_lng, min_lng);
-    let km_lat = 4.5 * 200.0;
 
     let mut ctx = ChartBuilder::on(&backend)
         .set_all_label_area_size(40)
@@ -43,44 +42,39 @@ pub fn graph_trajectory(
         .y_labels(10)
         .draw()?;
 
+    ctx.draw_series(LineSeries::new(
+        original_trajectory.iter().map(|pnt| (pnt.lat, pnt.lng)),
+        &BLACK,
+    ));
+    let mut last_pnt: Option<Point> = None;
     for st in encoded.0.iter() {
         match st {
             SubTrajectory::Reference(reference) => {
                 let mut t = Vec::new();
+                last_pnt.map(|pnt| t.push(pnt.clone()));
                 for point in reference.iter() {
                     t.push(point.clone());
                 }
+                last_pnt = t.last().map(|pnt| pnt.clone());
                 ctx.draw_series(LineSeries::new(
                     t.iter().map(|pnt| (pnt.lat, pnt.lng)),
                     &RED,
                 ))?;
-                ctx.draw_series(PointSeries::of_element(
-                    vec![(t[0].lat, t[0].lng)],
-                    4,
-                    &BLACK,
-                    &|coord, size, style| {
-                        EmptyElement::at(coord) + Circle::new((0, 0), size, style.filled())
-                    },
-                ))?;
             }
             SubTrajectory::Trajectory(trajectory) => {
                 let mut t = Vec::new();
+                last_pnt.map(|pnt| t.push(pnt.clone()));
                 for point in trajectory.iter() {
                     t.push(point.clone());
                 }
+                last_pnt = t.last().map(|pnt| pnt.clone());
                 ctx.draw_series(LineSeries::new(
                     t.iter().map(|pnt| (pnt.lat, pnt.lng)),
-                    &BLUE,
+                    &RED,
                 ))?;
             }
         }
     }
-    ctx.draw_series(LineSeries::new(
-        vec![(max_lat, max_lng), (max_lat + km_lat as i32, max_lng)],
-        &YELLOW,
-    ))?
-    .label("1km hellooo");
-
     backend.present()?;
 
     Ok(())
