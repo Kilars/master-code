@@ -1,12 +1,20 @@
-use crate::max_dtw::max_dtw_no_memo;
+use crate::max_dtw::max_dtw;
 use crate::rest::Point;
+use append_only_vec::AppendOnlyVec;
 use itertools::Itertools;
 
 pub fn douglas_peucker(polyline: &[Point], epsilon: f64) -> Vec<Point> {
     let mut indices: Vec<usize> = vec![0, polyline.len() - 1];
-    let mut dp_vec = indices.iter().map(|&i| polyline[i].clone()).collect_vec();
+    let dp_vecs: AppendOnlyVec<Vec<Point>> = AppendOnlyVec::new();
+    dp_vecs.push(indices.iter().map(|&i| polyline[i].clone()).collect_vec());
+    let mut hash_map = std::collections::HashMap::new();
 
-    while max_dtw_no_memo(dp_vec.as_slice(), polyline) > epsilon {
+    while max_dtw(
+        &dp_vecs[dp_vecs.len() - 1].as_slice(),
+        polyline,
+        &mut hash_map,
+    ) > epsilon
+    {
         let mut max_dist = (f64::MIN, 0);
         (0..indices.len() - 1).into_iter().for_each(|i| {
             (indices[i] + 1..indices[i + 1]).into_iter().for_each(|j| {
@@ -22,10 +30,9 @@ pub fn douglas_peucker(polyline: &[Point], epsilon: f64) -> Vec<Point> {
         });
         indices.push(max_dist.1);
         indices.sort();
-
-        dp_vec = indices.iter().map(|&i| polyline[i].clone()).collect_vec();
+        dp_vecs.push(indices.iter().map(|&i| polyline[i].clone()).collect_vec());
     }
-    dp_vec
+    dp_vecs[dp_vecs.len() - 1].clone()
 }
 
 fn perpendicular_distance(p: &Point, p1: &Point, p2: &Point) -> f64 {

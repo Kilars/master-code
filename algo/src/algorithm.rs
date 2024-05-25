@@ -6,6 +6,7 @@ use rstar::RTree;
 use serde::{de, Deserialize};
 
 use crate::{
+    dp::douglas_peucker,
     rest::{encode, Point},
     spatial_filter::{PointWithIndexReference, SpatialQuery},
 };
@@ -22,8 +23,7 @@ fn deserialize_json_string<'de, T: Deserialize<'de>, D: de::Deserializer<'de>>(
     serde_json::from_str(Deserialize::deserialize(deserializer)?).map_err(de::Error::custom)
 }
 #[derive(Debug, Clone)]
-struct RestMode {
-    pub mode_name: String,
+pub struct RestMode {
     pub rs: i32, //Reference set size in milliparts (thousandths)
     pub compression_ratio: i32,
     pub spatial_filter: bool,
@@ -31,11 +31,9 @@ struct RestMode {
     pub error_point: i32,
 }
 #[derive(Debug, Clone)]
-struct DpMode {
-    pub mode_name: String,
-}
+pub struct DpMode {}
 #[derive(Debug, Clone)]
-enum Mode {
+pub enum Mode {
     Rest(RestMode),
     DP(DpMode),
 }
@@ -48,6 +46,7 @@ pub struct Config {
 #[derive(Debug)]
 pub struct PerformanceMetrics {
     pub avg_cr: f64,
+    pub max_dtw_dist: i32,
     pub set_size: i32,
     pub runtime: std::time::Duration,
 }
@@ -128,6 +127,7 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                 return Ok(PerformanceMetrics {
                     avg_cr: 0.0,
                     set_size: reference_set.len() as i32,
+                    max_dtw_dist: conf.max_dtw_dist,
                     runtime: begin.elapsed(),
                 });
             }
@@ -163,11 +163,42 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
             Ok(PerformanceMetrics {
                 avg_cr,
                 set_size: reference_set.len() as i32,
+                max_dtw_dist: conf.max_dtw_dist,
                 runtime,
             })
         }
-        Mode::DP(dp_rest_conf) => {
-            todo!()
+        Mode::DP(_) => {
+            println!("DP mode");
+            let n_trajectories: Vec<Vec<Point>> = csv::Reader::from_path("porto.csv")?
+                .deserialize()
+                .take(conf.n as usize)
+                .map(|res| {
+                    res.map(|traj: CsvTrajectory| {
+                        traj.polyline
+                            .iter()
+                            .map(|&pnt| pnt.into())
+                            .collect::<Vec<_>>()
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            println!("Trajectories loaded");
+            let mut encoded_cr = Vec::new();
+            n_trajectories.iter().enumerate().for_each(|(i, t)| {
+                print!("\r{}/{}", i, n_trajectories.len());
+                io::stdout().flush().unwrap();
+                let encoded_trajectory =
+                    douglas_peucker(t.as_slice(), conf.max_dtw_dist as f64 / 1000.0);
+                let cr = t.len() as f64 / encoded_trajectory.len() as f64;
+                encoded_cr.push((encoded_trajectory, cr));
+            });
+            let runtime = begin.elapsed();
+            let avg_cr = encoded_cr.iter().map(|(_, cr)| cr).sum::<f64>() / encoded_cr.len() as f64;
+            Ok(PerformanceMetrics {
+                avg_cr,
+                set_size: 0,
+                max_dtw_dist: conf.max_dtw_dist,
+                runtime,
+            })
         }
     }
 }
