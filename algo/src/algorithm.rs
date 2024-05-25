@@ -22,7 +22,7 @@ fn deserialize_json_string<'de, T: Deserialize<'de>, D: de::Deserializer<'de>>(
 ) -> Result<T, D::Error> {
     serde_json::from_str(Deserialize::deserialize(deserializer)?).map_err(de::Error::custom)
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct RestMode {
     pub rs: i32, //Reference set size in milliparts (thousandths)
     pub compression_ratio: i32,
@@ -52,6 +52,11 @@ pub struct PerformanceMetrics {
 }
 
 pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv::Error> {
+    let mut file = std::fs::File::options()
+        .create(true)
+        .append(true)
+        .open("out/intermediate.txt")
+        .expect("Failed to open or create the file");
     let begin = std::time::Instant::now();
     match conf.mode {
         Mode::Rest(rest_conf) => {
@@ -72,19 +77,12 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
             } else {
                 None
             };
-            println!("MRT list size: {}", reference_set.len());
-            let begin_mrt = std::time::Instant::now();
-
-            let mut file = std::fs::File::options()
-                .create(true)
-                .append(true)
-                .open("out/set_size.txt")
-                .expect("Failed to open or create the file");
+            println!("MRT list size: {}", sample_to_build_reference_set.len());
 
             sample_to_build_reference_set
                 .into_iter()
                 .enumerate()
-                .for_each(|(i, t)| {
+                .for_each(|(_, t)| {
                     let reference_vec = reference_set.iter().map(|t| t.as_slice()).collect_vec();
                     let (_, compression_ratio) = encode(
                         reference_vec.as_slice(),
@@ -106,22 +104,9 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                         }
                         reference_set.push(t);
                     }
-
-                    if i % 5000 == 0 {
-                        let _file_write_res = write!(
-                            file,
-                            "{},{},{},{},{},{},\n",
-                            i,
-                            reference_set.len(),
-                            rest_conf.spatial_filter,
-                            conf.max_dtw_dist,
-                            rest_conf.error_point,
-                            begin_mrt.elapsed().as_secs_f64(),
-                        );
-                    }
                 });
 
-            println!("MRT time: {:.2?}", begin_mrt.elapsed());
+            println!("MRT time: {:.2?}", begin.elapsed());
             println!("Reference set size: {}", reference_set.len());
             if only_set {
                 return Ok(PerformanceMetrics {
@@ -146,7 +131,7 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                 .collect::<Result<Vec<_>, _>>()?;
             let mut encoded_cr = Vec::new();
             let final_reference_vectors = reference_set.iter().map(|t| t.as_slice()).collect_vec();
-            n_trajectories.iter().for_each(|t| {
+            n_trajectories.iter().enumerate().for_each(|(i, t)| {
                 let (encoded_trajectory, compression_ratio) = encode(
                     final_reference_vectors.as_slice(),
                     &t.as_slice(),
@@ -156,19 +141,46 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                     rest_conf.error_point as f64,
                 );
                 encoded_cr.push((encoded_trajectory, compression_ratio));
+                if i % 5000 == 0 {
+                    let avg_cr =
+                        encoded_cr.iter().map(|(_, cr)| cr).sum::<f64>() / encoded_cr.len() as f64;
+                    let _file_write_res = write!(
+                        file,
+                        "{},{},{},{},{}\n",
+                        match conf.mode.clone() {
+                            Mode::Rest(rest_conf) => {
+                                let mut mode_name = String::from("REST"); // Change to mutable String
+                                if rest_conf.spatial_filter {
+                                    mode_name.push_str("-SF"); // Use push_str to append
+                                    mode_name.push_str(&rest_conf.error_point.to_string());
+                                    // Convert error_point to String and append
+                                }
+                                if rest_conf.dtw_band != 0 {
+                                    mode_name.push_str("-BND"); // Append "-BND"
+                                    mode_name.push_str(&rest_conf.dtw_band.to_string());
+                                    // Convert dtw_band to String and append
+                                }
+                                mode_name
+                            }
+                            Mode::DP(_) => String::from("DP"),
+                        },
+                        i,
+                        conf.max_dtw_dist,
+                        begin.elapsed().as_secs_f64(),
+                        avg_cr,
+                    );
+                }
             });
-            let runtime = begin.elapsed();
             let avg_cr = encoded_cr.iter().map(|(_, cr)| cr).sum::<f64>() / encoded_cr.len() as f64;
 
             Ok(PerformanceMetrics {
                 avg_cr,
                 set_size: reference_set.len() as i32,
                 max_dtw_dist: conf.max_dtw_dist,
-                runtime,
+                runtime: begin.elapsed(),
             })
         }
         Mode::DP(_) => {
-            println!("DP mode");
             let n_trajectories: Vec<Vec<Point>> = csv::Reader::from_path("porto.csv")?
                 .deserialize()
                 .take(conf.n as usize)
@@ -181,23 +193,49 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                     })
                 })
                 .collect::<Result<Vec<_>, _>>()?;
-            println!("Trajectories loaded");
+
             let mut encoded_cr = Vec::new();
             n_trajectories.iter().enumerate().for_each(|(i, t)| {
-                print!("\r{}/{}", i, n_trajectories.len());
-                io::stdout().flush().unwrap();
                 let encoded_trajectory =
                     douglas_peucker(t.as_slice(), conf.max_dtw_dist as f64 / 1000.0);
                 let cr = t.len() as f64 / encoded_trajectory.len() as f64;
+                if i % 5000 == 0 {
+                    let avg_cr =
+                        encoded_cr.iter().map(|(_, cr)| cr).sum::<f64>() / encoded_cr.len() as f64;
+                    let _file_write_res = write!(
+                        file,
+                        "{},{},{},{},{}\n",
+                        match conf.mode.clone() {
+                            Mode::Rest(rest_conf) => {
+                                let mut mode_name = String::from("REST"); // Change to mutable String
+                                if rest_conf.spatial_filter {
+                                    mode_name.push_str("-SF"); // Use push_str to append
+                                    mode_name.push_str(&rest_conf.error_point.to_string());
+                                    // Convert error_point to String and append
+                                }
+                                if rest_conf.dtw_band != 0 {
+                                    mode_name.push_str("-BND"); // Append "-BND"
+                                    mode_name.push_str(&rest_conf.dtw_band.to_string());
+                                    // Convert dtw_band to String and append
+                                }
+                                mode_name
+                            }
+                            Mode::DP(_) => String::from("DP"),
+                        },
+                        i,
+                        conf.max_dtw_dist,
+                        begin.elapsed().as_secs_f64(),
+                        avg_cr,
+                    );
+                }
                 encoded_cr.push((encoded_trajectory, cr));
             });
-            let runtime = begin.elapsed();
             let avg_cr = encoded_cr.iter().map(|(_, cr)| cr).sum::<f64>() / encoded_cr.len() as f64;
             Ok(PerformanceMetrics {
                 avg_cr,
                 set_size: 0,
                 max_dtw_dist: conf.max_dtw_dist,
-                runtime,
+                runtime: begin.elapsed(),
             })
         }
     }

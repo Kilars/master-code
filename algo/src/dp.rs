@@ -13,6 +13,7 @@ pub fn douglas_peucker(polyline: &[Point], epsilon: f64) -> Vec<Point> {
         &dp_vecs[dp_vecs.len() - 1].as_slice(),
         polyline,
         &mut hash_map,
+        None,
     ) > epsilon
     {
         let mut max_dist = (f64::MIN, 0);

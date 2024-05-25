@@ -1,5 +1,5 @@
 use crate::dtw_band::{dtw as dtw_normal, dtw_band};
-use crate::max_dtw::max_dtw as og_dtw;
+use crate::max_dtw::{max_dtw as og_dtw, max_dtw_band};
 use crate::spatial_filter::{PointWithIndexReference, SpatialQuery};
 use haversine::{distance, Location};
 use itertools::Itertools;
@@ -62,8 +62,12 @@ pub fn max_dtw<'a>(
     st: &'a [Point],
     rt: &'a [Point],
     memo: &mut HashMap<(&'a [Point], &'a [Point]), f64>,
+    band: usize,
 ) -> f64 {
-    og_dtw(st, rt, memo)
+    if band == 0 {
+        return og_dtw(st, rt, memo, None);
+    }
+    max_dtw_band(st, rt, memo, band)
 }
 
 pub fn encode<'a>(
@@ -148,6 +152,7 @@ fn greedy_mrt_search<'a>(
                     &trajectory[0..=1],
                     &reference_trajectory[j..=j + 1],
                     &mut memo,
+                    dtw_band,
                 ) < max_deviation
             })
             .map(|j| (j, j + 1))
@@ -181,6 +186,7 @@ fn greedy_mrt_search<'a>(
                             &trajectory[..=trajectory_index],
                             &reference_trajectory[s..=e],
                             &mut memo,
+                            dtw_band,
                         ) < max_deviation
                     })
                     .collect_vec()

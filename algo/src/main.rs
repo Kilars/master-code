@@ -22,20 +22,24 @@ fn run_config(conf: Config) -> Result<(), csv::Error> {
             let _file_write_res = write!(
                 file,
                 "{},{},{},{},{}\n",
-                conf.n,
-                //conf.rs,
-                //conf.compression_ratio,
-                //conf.spatial_filter,
                 match conf.mode {
                     Mode::Rest(rest_conf) => {
-                        let mut mode_name = "REST".to_string();
+                        let mut mode_name = String::from("REST"); // Change to mutable String
                         if rest_conf.spatial_filter {
-                            mode_name = "REST-SF".to_string() + &rest_conf.error_point.to_string();
+                            mode_name.push_str("-SF"); // Use push_str to append
+                            mode_name.push_str(&rest_conf.error_point.to_string());
+                            // Convert error_point to String and append
+                        }
+                        if rest_conf.dtw_band != 0 {
+                            mode_name.push_str("-BND"); // Append "-BND"
+                            mode_name.push_str(&rest_conf.dtw_band.to_string());
+                            // Convert dtw_band to String and append
                         }
                         mode_name
                     }
-                    Mode::DP(_) => "DP".to_string(),
+                    Mode::DP(_) => String::from("DP"),
                 },
+                conf.n,
                 conf.max_dtw_dist,
                 res.runtime.as_secs_f64(),
                 res.avg_cr,
@@ -48,25 +52,49 @@ fn run_config(conf: Config) -> Result<(), csv::Error> {
 }
 
 fn main() -> Result<(), csv::Error> {
+    let n = 100000;
+    let dtw_dist = 200;
     let rest_mode = RestMode {
-        rs: 1000,
+        rs: 100,
         compression_ratio: 5,
         spatial_filter: true,
         dtw_band: 0,
-        error_point: 5,
+        error_point: 30,
     };
-    let _rest = Config {
-        n: 100000,
-        max_dtw_dist: 200,
-        mode: Mode::Rest(rest_mode),
+    let rest_band_mode = RestMode {
+        rs: 100,
+        compression_ratio: 5,
+        spatial_filter: false,
+        dtw_band: 40,
+        error_point: 0,
     };
-
+    let rest_band_sf_mode = RestMode {
+        rs: 100,
+        compression_ratio: 5,
+        spatial_filter: true,
+        dtw_band: 40,
+        error_point: 30,
+    };
     let dp_mode = DpMode {};
-    let dp = Config {
-        n: 1000,
-        max_dtw_dist: 200,
+    run_config(Config {
+        n,
+        mode: Mode::Rest(rest_mode),
+        max_dtw_dist: dtw_dist,
+    })?;
+    run_config(Config {
+        n,
+        mode: Mode::Rest(rest_band_sf_mode),
+        max_dtw_dist: dtw_dist,
+    })?;
+    run_config(Config {
+        n,
+        mode: Mode::Rest(rest_band_mode),
+        max_dtw_dist: dtw_dist,
+    })?;
+    run_config(Config {
+        n,
         mode: Mode::DP(dp_mode),
-    };
-    run_config(dp)?;
+        max_dtw_dist: dtw_dist,
+    })?;
     Ok(())
 }
