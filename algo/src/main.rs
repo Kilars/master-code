@@ -26,7 +26,7 @@ fn run_config(conf: Config) -> Result<(), csv::Error> {
                 conf.rs,
                 conf.compression_ratio,
                 conf.spatial_filter,
-                conf.error_trajectories,
+                conf.max_dtw_dist,
                 conf.error_point,
                 res.runtime.as_secs_f64(),
                 res.avg_cr,
@@ -45,7 +45,7 @@ fn main() -> Result<(), csv::Error> {
         compression_ratio: 5,
         spatial_filter: true,
         dtw_band: 0,
-        error_trajectories: 200,
+        max_dtw_dist: 200,
         error_point: 5,
     };
     let rs_seq = vec![15];

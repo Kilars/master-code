@@ -2,37 +2,30 @@ use crate::max_dtw::max_dtw_no_memo;
 use crate::rest::Point;
 use itertools::Itertools;
 
-fn douglas_peucker(polyline: &[Point], epsilon: f64) -> Vec<Point> {
-    let mut dp: Vec<usize> = vec![0, polyline.len() - 1];
+pub fn douglas_peucker(polyline: &[Point], epsilon: f64) -> Vec<Point> {
+    let mut indices: Vec<usize> = vec![0, polyline.len() - 1];
+    let mut dp_vec = indices.iter().map(|&i| polyline[i].clone()).collect_vec();
 
-    while true {
-        let dp_vec = dp.iter().map(|&i| polyline[i].clone()).collect_vec();
-        if max_dtw_no_memo(dp_vec.as_slice(), polyline) > epsilon {
-            let mut max_dist = (0.0, None);
-            for i in 0..dp.len() - 1 {
-                for j in dp[i] + 1..dp[i + 1] {
-                    let dist = perpendicular_distance(
-                        &polyline[j],
-                        &polyline[dp[i]],
-                        &polyline[dp[i + 1]],
-                    );
-                    if dist > max_dist.0 {
-                        max_dist = (dist, Some(j));
-                    }
+    while max_dtw_no_memo(dp_vec.as_slice(), polyline) > epsilon {
+        let mut max_dist = (f64::MIN, 0);
+        (0..indices.len() - 1).into_iter().for_each(|i| {
+            (indices[i] + 1..indices[i + 1]).into_iter().for_each(|j| {
+                let dist = perpendicular_distance(
+                    &polyline[j],
+                    &polyline[indices[i]],
+                    &polyline[indices[i + 1]],
+                );
+                if dist > max_dist.0 {
+                    max_dist = (dist, j);
                 }
-            }
-            match max_dist.1 {
-                Some(j) => {
-                    dp.push(j);
-                    dp.sort();
-                }
-                None => break,
-            }
-        } else {
-            break;
-        }
+            })
+        });
+        indices.push(max_dist.1);
+        indices.sort();
+
+        dp_vec = indices.iter().map(|&i| polyline[i].clone()).collect_vec();
     }
-    dp.iter().map(|&i| polyline[i].clone()).collect_vec()
+    dp_vec
 }
 
 fn perpendicular_distance(p: &Point, p1: &Point, p2: &Point) -> f64 {
