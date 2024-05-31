@@ -77,12 +77,12 @@ pub fn encode<'a>(
     band: usize,
     r_tree: Option<&RTree<PointWithIndexReference>>,
     spatial_filter_distance: f64,
-) -> (EncodedTrajectory<'a>, f64) {
+) -> (EncodedTrajectory<'a>, (u64, u64, u64)) {
     let length = trajectory.len();
     let mut encoded_trajectory = EncodedTrajectory(Vec::new());
     let mut last_indexed_point = 0;
-    let mut references = 0;
-    let mut direct_points = 0;
+    let mut references: u64 = 0;
+    let mut direct_points: u64 = 0;
 
     while last_indexed_point < length - 1 {
         let candidate_vector = match r_tree {
@@ -121,18 +121,15 @@ pub fn encode<'a>(
         }
     }
 
-    // i32 is 4 bytes
-    let point_size = 4.0;
-    // 8 byte reference
-    let reference_size = 8.0;
     if direct_points > 0 {
+        // this originally counts edges not points, and points = edges + 1
         direct_points += 1;
     }
 
-    let compression_ratio = (length as f64 * point_size)
-        / ((direct_points as f64 * point_size) + (references as f64 * reference_size));
-
-    (encoded_trajectory, compression_ratio)
+    (
+        encoded_trajectory,
+        (length as u64, references, direct_points),
+    )
 }
 
 fn greedy_mrt_search<'a>(
