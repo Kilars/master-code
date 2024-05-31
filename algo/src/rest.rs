@@ -100,7 +100,7 @@ pub fn encode<'a>(
         };
 
         //spatial deviation from m to k
-        match greedy_mrt_search(
+        match greedy_mrt_expand(
             &trajectory[last_indexed_point..],
             candidate_vector.as_slice(),
             spatial_deviation / 1000.0,
@@ -132,7 +132,7 @@ pub fn encode<'a>(
     )
 }
 
-fn greedy_mrt_search<'a>(
+fn greedy_mrt_expand<'a>(
     trajectory: &[Point],
     reference_trajectories: &[&'a [Point]],
     max_deviation: f64,
@@ -178,16 +178,24 @@ fn greedy_mrt_search<'a>(
                     ]
                     .iter()
                     .cloned()
-                    .filter(|&(s, e)| {
-                        max_dtw(
-                            &trajectory[..=trajectory_index],
-                            &reference_trajectory[s..=e],
-                            &mut memo,
-                            dtw_band,
-                        ) < max_deviation
+                    .map(|(s, e)| {
+                        (
+                            max_dtw(
+                                &trajectory[..=trajectory_index],
+                                &reference_trajectory[s..=e],
+                                &mut memo,
+                                dtw_band,
+                            ),
+                            s,
+                            e,
+                        )
                     })
+                    .filter(|(dist, _, _)| *dist < max_deviation)
                     .collect_vec()
                 })
+                .sorted_by_key(|(dist, _, _)| (*dist * 1000.0) as i32)
+                .take(3)
+                .map(|(_, s, e)| (s, e))
                 .collect();
         }
     }
