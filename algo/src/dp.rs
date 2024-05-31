@@ -7,16 +7,11 @@ pub fn douglas_peucker(polyline: &[Point], epsilon: f64) -> Vec<Point> {
     let mut indices: Vec<usize> = vec![0, polyline.len() - 1];
     let dp_vecs: AppendOnlyVec<Vec<Point>> = AppendOnlyVec::new();
     dp_vecs.push(indices.iter().map(|&i| polyline[i].clone()).collect_vec());
-    let mut hash_map = std::collections::HashMap::new();
+    //let mut hash_map = std::collections::HashMap::new();
+    let mut max_dist = (f64::MAX, 0);
 
-    while max_dtw(
-        &dp_vecs[dp_vecs.len() - 1].as_slice(),
-        polyline,
-        &mut hash_map,
-        None,
-    ) > epsilon
-    {
-        let mut max_dist = (f64::MIN, 0);
+    while max_dist.0 > epsilon {
+        max_dist = (f64::MIN, 0);
         (0..indices.len() - 1).into_iter().for_each(|i| {
             (indices[i] + 1..indices[i + 1]).into_iter().for_each(|j| {
                 let dist = perpendicular_distance(
@@ -29,6 +24,9 @@ pub fn douglas_peucker(polyline: &[Point], epsilon: f64) -> Vec<Point> {
                 }
             })
         });
+        if max_dist.0 <= epsilon {
+            break;
+        }
         indices.push(max_dist.1);
         indices.sort();
         dp_vecs.push(indices.iter().map(|&i| polyline[i].clone()).collect_vec());
