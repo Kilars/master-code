@@ -121,7 +121,7 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                         reference_set.push(t);
                         raw_points += shape.0;
                     }
-                    if (i + 1) % 5000 == 0 {
+                    if (i + 1) % 20000 == 0 {
                         let _file_write_res = write!(
                             set_size_file,
                             "{},{},{},{},{},{}\n",
@@ -164,6 +164,7 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
 
             let n_trajectories: Vec<Vec<Point>> = csv::Reader::from_path("porto.csv")?
                 .deserialize()
+                .skip(((rest_conf.rs as f32 / 1000.0) * conf.n as f32) as usize)
                 .take(conf.n as usize)
                 .map(|res| {
                     res.map(|traj: CsvTrajectory| {
@@ -190,7 +191,7 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                 references += shape.1;
                 raw_points += shape.2;
 
-                if (i + 1) % 5000 == 0 {
+                if (i + 1) % 20000 == 0 {
                     let avg_cr = encoded_cr
                         .iter()
                         .map(|&(_, shape)| cr_from_shape(shape))
@@ -200,7 +201,7 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                         cr_from_shape((compressed_points, references, raw_points));
                     let _file_write_res = write!(
                         intermediate_file,
-                        "{},{},{},{},{},{}\n",
+                        "{},{},{},{},{},{},{},{}\n",
                         match conf.mode.clone() {
                             Mode::Rest(rest_conf) => {
                                 let mut mode_name = String::from("REST"); // Change to mutable String
@@ -220,6 +221,11 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                         },
                         i + 1,
                         conf.max_dtw_dist,
+                        format!(
+                            "{:.2}",
+                            ((rest_conf.rs as f32 / 1000.0) * conf.n as f32) as usize
+                        ),
+                        final_reference_vectors.len(),
                         format!("{:.0}", begin.elapsed().as_secs_f64()),
                         format!("{:.2}", avg_cr),
                         format!("{:.2}", cr_set_inclusive),
@@ -258,12 +264,12 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                 let encoded_trajectory =
                     douglas_peucker(t.as_slice(), conf.max_dtw_dist as f64 / 1000.0);
                 let cr = t.len() as f64 / encoded_trajectory.len() as f64;
-                if (i + 1) % 1000 == 0 {
+                if (i + 1) % 20000 == 0 {
                     let avg_cr =
                         encoded_cr.iter().map(|(_, cr)| cr).sum::<f64>() / encoded_cr.len() as f64;
                     let _file_write_res = write!(
                         intermediate_file,
-                        "{},{},{},{},{},{},{}\n",
+                        "{},{},{},{},{},{},{},{}\n",
                         match conf.mode.clone() {
                             Mode::Rest(rest_conf) => {
                                 let mut mode_name = String::from("REST"); // Change to mutable String
@@ -283,6 +289,7 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                         },
                         i + 1,
                         conf.max_dtw_dist,
+                        0,
                         0,
                         format!("{:.0}", begin.elapsed().as_secs_f64()),
                         format!("{:.2}", avg_cr),
