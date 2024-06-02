@@ -60,32 +60,38 @@ fn run_config(conf: Config) -> Result<(), csv::Error> {
 }
 
 fn main() -> Result<(), csv::Error> {
-    let n = 100;
+    let n = 10000;
     let dtw_dist = 200;
     let dp = DpMode {};
     run_config(Config {
         n,
         mode: Mode::DP(dp.clone()),
         max_dtw_dist: dtw_dist,
-        dtw_band: 80,
+        dtw_band: 50,
     })?;
-    //    run_config(Config {
-    //        n,
-    //        mode: Mode::DP(dp.clone()),
-    //        max_dtw_dist: dtw_dist,
-    //        dtw_band: 30,
-    //    })?;
-    //    run_config(Config {
-    //        n,
-    //        mode: Mode::DP(dp.clone()),
-    //        max_dtw_dist: dtw_dist,
-    //        dtw_band: 20,
-    //    })?;
-    //    run_config(Config {
-    //        n,
-    //        mode: Mode::DP(dp.clone()),
-    //        max_dtw_dist: dtw_dist,
-    //        dtw_band: 10,
-    //    })?;
+    run_config(Config {
+        n,
+        mode: Mode::DP(dp.clone()),
+        max_dtw_dist: dtw_dist,
+        dtw_band: 40,
+    })?;
+    run_config(Config {
+        n,
+        mode: Mode::DP(dp.clone()),
+        max_dtw_dist: dtw_dist,
+        dtw_band: 30,
+    })?;
+    run_config(Config {
+        n,
+        mode: Mode::DP(dp.clone()),
+        max_dtw_dist: dtw_dist,
+        dtw_band: 20,
+    })?;
+    run_config(Config {
+        n,
+        mode: Mode::DP(dp.clone()),
+        max_dtw_dist: dtw_dist,
+        dtw_band: 10,
+    })?;
     Ok(())
 }
