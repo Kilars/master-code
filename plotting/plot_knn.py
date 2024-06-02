@@ -39,50 +39,23 @@ def plot_grouped_data(df, group_column, x_column, y_column, path, titles, x_form
 
 # Apply the function with direct conversion of runtime to hours
 titles = {
-    'title': 'N over Runtime',
-    'y': 'Runtime (hours)',
-    'x': 'N',
+    'title': 'K over Runtime for N = 10k',
+    'y': 'Runtime (minute)',
+    'x': 'K',
 }
-plot_grouped_data(pd.read_csv('compression.csv'), 'mode', 'n', 'runtime', 'n_runtime.png', titles, format_1k, format_seconds_minutes)
+plot_grouped_data(pd.read_csv('knn.csv'), 'mode', 'k', 'runtime', 'k_runtime.png', titles, no_format, format_seconds_minutes)
 plot_grouped_data(
-    pd.read_csv('compression.csv'),
+    pd.read_csv('knn.csv'),
     'mode',
-    'n',
-    'tot_cr',
-    'n_compression.png',
+    'k',
+    'avg_cr',
+    'k_avgcr.png',
     {
-        'title': 'N over Compression Ratio',
+        'title': 'K over Avg CR for N = 10k',
         'y': 'Compression Ratio',
-        'x': 'N',
+        'x': 'K',
     },
-    format_1k,
+    no_format,
     no_format,
 )
-plot_grouped_data(
-    pd.read_csv('set_size.csv'),
-    'mode',
-    'n',
-    'set_size',
-    'n_set_size.png',
-    {
-        'title': 'Sample Size over Set Size',
-        'y': 'Set Size',
-        'x': 'Sample Size',
-    },
-    format_1k,
-    format_1k,
-)
-plot_grouped_data(
-    pd.read_csv('set_size.csv'),
-    'mode',
-    'n',
-    'runtime',
-    'n_set_runtime.png',
-    {
-        'title': 'Set building sample size over Runtime',
-        'y': 'Runtime (hours)',
-        'x': 'Sample Size',
-    },
-    format_1k,
-    format_seconds_minutes,
-)
+
