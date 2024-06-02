@@ -60,38 +60,28 @@ fn run_config(conf: Config) -> Result<(), csv::Error> {
 }
 
 fn main() -> Result<(), csv::Error> {
-    let n = 10000;
+    let n = 100000;
     let dtw_dist = 200;
-    let dp = DpMode {};
+    let mut rest_mode = RestMode {
+        rs: 100,
+        compression_ratio: 5,
+        spatial_filter: false,
+        include_entire_trajectory: false,
+        k: 3,
+        error_point: 70,
+    };
     run_config(Config {
         n,
-        mode: Mode::DP(dp.clone()),
         max_dtw_dist: dtw_dist,
-        dtw_band: 50,
+        mode: Mode::Rest(rest_mode),
+        dtw_band: 0,
     })?;
+    rest_mode.include_entire_trajectory = true;
     run_config(Config {
         n,
-        mode: Mode::DP(dp.clone()),
         max_dtw_dist: dtw_dist,
-        dtw_band: 40,
-    })?;
-    run_config(Config {
-        n,
-        mode: Mode::DP(dp.clone()),
-        max_dtw_dist: dtw_dist,
-        dtw_band: 30,
-    })?;
-    run_config(Config {
-        n,
-        mode: Mode::DP(dp.clone()),
-        max_dtw_dist: dtw_dist,
-        dtw_band: 20,
-    })?;
-    run_config(Config {
-        n,
-        mode: Mode::DP(dp.clone()),
-        max_dtw_dist: dtw_dist,
-        dtw_band: 10,
+        mode: Mode::Rest(rest_mode),
+        dtw_band: 0,
     })?;
     Ok(())
 }

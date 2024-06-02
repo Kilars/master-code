@@ -7,7 +7,7 @@ use serde::{de, Deserialize};
 
 use crate::{
     dp::douglas_peucker,
-    rest::{encode, Point},
+    rest::{encode, Point, SubTrajectory},
     spatial_filter::{PointWithIndexReference, SpatialQuery},
 };
 
@@ -27,6 +27,7 @@ pub struct RestMode {
     pub rs: i32, //Reference set size in milliparts (thousandths)
     pub compression_ratio: i32,
     pub spatial_filter: bool,
+    pub include_entire_trajectory: bool,
     pub k: usize,
     pub error_point: i32,
 }
@@ -94,14 +95,13 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
             } else {
                 None
             };
-            println!("MRT list size: {}", sample_to_build_reference_set.len());
 
             sample_to_build_reference_set
                 .into_iter()
                 .enumerate()
                 .for_each(|(i, t)| {
                     let reference_vec = reference_set.iter().map(|t| t.as_slice()).collect_vec();
-                    let (_, shape) = encode(
+                    let (encoded, shape) = encode(
                         reference_vec.as_slice(),
                         &t.as_slice(),
                         conf.max_dtw_dist as f64,
@@ -112,17 +112,76 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                     );
 
                     if cr_from_shape(shape) < rest_conf.compression_ratio as f64 {
-                        if let Some(mut_tree) = r_tree.as_mut() {
-                            for (i, point) in t.iter().enumerate() {
-                                mut_tree.insert(PointWithIndexReference {
-                                    point: point.clone(),
-                                    index: (reference_set.len(), i),
-                                });
+                        if rest_conf.include_entire_trajectory {
+                            if let Some(mut_tree) = r_tree.as_mut() {
+                                for (i, point) in t.iter().enumerate() {
+                                    mut_tree.insert(PointWithIndexReference {
+                                        point: point.clone(),
+                                        index: (reference_set.len(), i),
+                                    });
+                                }
+                            }
+                            reference_set.push(t);
+                            raw_points += shape.0;
+                        } else {
+                            let mut raw_trajectories_added = Vec::new();
+                            let mut first_point_index = 0;
+                            for st in encoded.0 {
+                                match &st {
+                                    SubTrajectory::Trajectory(raw_trajectory) => {
+                                        for p in raw_trajectory
+                                            [first_point_index..raw_trajectory.len()]
+                                            .iter()
+                                        {
+                                            raw_trajectories_added.push(Some(p.clone()));
+                                        }
+                                    }
+                                    // Successfully compressed, therefore not added to reference set
+                                    SubTrajectory::Reference(_) => {
+                                        raw_trajectories_added.push(None);
+                                    }
+                                }
+                                first_point_index = 1;
+                            }
+                            let mut current_batch = Vec::new();
+
+                            for item in raw_trajectories_added.iter() {
+                                match item {
+                                    Some(p) => current_batch.push(p.clone()),
+                                    None => {
+                                        if !current_batch.is_empty() {
+                                            raw_points += current_batch.len() as u64;
+                                            if let Some(mut_tree) = r_tree.as_mut() {
+                                                for (i, point) in current_batch.iter().enumerate() {
+                                                    mut_tree.insert(PointWithIndexReference {
+                                                        point: point.clone(),
+                                                        index: (reference_set.len(), i),
+                                                    });
+                                                }
+                                            }
+                                            reference_set.push(current_batch.clone()); // Push the current batch as one element
+                                            current_batch.clear(); // Reset the current batch
+                                        }
+                                    }
+                                }
+                            }
+                            if !current_batch.is_empty() {
+                                raw_points += current_batch.len() as u64;
+                                if let Some(mut_tree) = r_tree.as_mut() {
+                                    for (i, point) in current_batch.iter().enumerate() {
+                                        mut_tree.insert(PointWithIndexReference {
+                                            point: point.clone(),
+                                            index: (reference_set.len(), i),
+                                        });
+                                    }
+                                }
+
+                                reference_set.push(current_batch.clone()); // Push the current batch as one element
+                                current_batch.clear(); // Reset the current batch
                             }
                         }
-                        reference_set.push(t);
-                        raw_points += shape.0;
                     }
+
                     if (i + 1) as i32 % (conf.n / 5) == 0 {
                         let _file_write_res = write!(
                             set_size_file,
