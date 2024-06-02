@@ -121,7 +121,7 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                         reference_set.push(t);
                         raw_points += shape.0;
                     }
-                    if (i + 1) % 20000 == 0 {
+                    if (i + 1) as i32 % (conf.n / 5) == 0 {
                         let _file_write_res = write!(
                             set_size_file,
                             "{},{},{},{},{},{}\n",
@@ -191,7 +191,7 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                 references += shape.1;
                 raw_points += shape.2;
 
-                if (i + 1) % 20000 == 0 {
+                if (i + 1) as i32 % (conf.n / 5) == 0 {
                     let avg_cr = encoded_cr
                         .iter()
                         .map(|&(_, shape)| cr_from_shape(shape))
@@ -264,7 +264,7 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                 let encoded_trajectory =
                     douglas_peucker(t.as_slice(), conf.max_dtw_dist as f64 / 1000.0);
                 let cr = t.len() as f64 / encoded_trajectory.len() as f64;
-                if (i + 1) % 20000 == 0 {
+                if (i + 1) as i32 % (conf.n / 5) == 0 {
                     let avg_cr =
                         encoded_cr.iter().map(|(_, cr)| cr).sum::<f64>() / encoded_cr.len() as f64;
                     let _file_write_res = write!(
