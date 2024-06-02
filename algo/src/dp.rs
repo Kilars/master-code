@@ -1,17 +1,22 @@
-use crate::max_dtw::max_dtw;
+use crate::max_dtw::max_dtw_band;
 use crate::rest::Point;
 use append_only_vec::AppendOnlyVec;
 use itertools::Itertools;
 
-pub fn douglas_peucker(polyline: &[Point], epsilon: f64) -> Vec<Point> {
+pub fn douglas_peucker(polyline: &[Point], epsilon: f64, band: usize) -> Vec<Point> {
     let mut indices: Vec<usize> = vec![0, polyline.len() - 1];
     let dp_vecs: AppendOnlyVec<Vec<Point>> = AppendOnlyVec::new();
     dp_vecs.push(indices.iter().map(|&i| polyline[i].clone()).collect_vec());
-    //let mut hash_map = std::collections::HashMap::new();
-    let mut max_dist = (f64::MAX, 0);
+    let mut hash_map = std::collections::HashMap::new();
 
-    while max_dist.0 > epsilon {
-        max_dist = (f64::MIN, 0);
+    while max_dtw_band(
+        &dp_vecs[dp_vecs.len() - 1].as_slice(),
+        polyline,
+        &mut hash_map,
+        band,
+    ) > epsilon
+    {
+        let mut max_dist = (f64::MIN, 0);
         (0..indices.len() - 1).into_iter().for_each(|i| {
             (indices[i] + 1..indices[i + 1]).into_iter().for_each(|j| {
                 let dist = perpendicular_distance(
@@ -24,9 +29,6 @@ pub fn douglas_peucker(polyline: &[Point], epsilon: f64) -> Vec<Point> {
                 }
             })
         });
-        if max_dist.0 <= epsilon {
-            break;
-        }
         indices.push(max_dist.1);
         indices.sort();
         dp_vecs.push(indices.iter().map(|&i| polyline[i].clone()).collect_vec());
@@ -92,7 +94,7 @@ mod tests {
         // Epsilon is chosen such that the simplified polyline should ideally remove the middle points
         let epsilon = 0.2; // Adjust this based on the scale of your Point::distance implementation
 
-        let simplified_polyline = douglas_peucker(&points, epsilon);
+        let simplified_polyline = douglas_peucker(&points, epsilon, 2);
 
         // Ensure the simplified polyline has fewer points
         assert!(simplified_polyline.len() < points.len());

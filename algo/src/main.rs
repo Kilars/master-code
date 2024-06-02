@@ -30,14 +30,22 @@ fn run_config(conf: Config) -> Result<(), csv::Error> {
                             mode_name.push_str(&rest_conf.error_point.to_string());
                             // Convert error_point to String and append
                         }
-                        if rest_conf.dtw_band != 0 {
+                        if conf.dtw_band != 0 {
                             mode_name.push_str("-BND"); // Append "-BND"
-                            mode_name.push_str(&rest_conf.dtw_band.to_string());
+                            mode_name.push_str(&conf.dtw_band.to_string());
                             // Convert dtw_band to String and append
                         }
                         mode_name
                     }
-                    Mode::DP(_) => String::from("DP"),
+                    Mode::DP(_) => {
+                        let mut mode_name = String::from("DP");
+                        if conf.dtw_band != 0 {
+                            mode_name.push_str("-BND"); // Append "-BND"
+                            mode_name.push_str(&conf.dtw_band.to_string());
+                            // Convert dtw_band to String and append
+                        }
+                        mode_name
+                    }
                 },
                 conf.n,
                 conf.max_dtw_dist,
@@ -52,44 +60,32 @@ fn run_config(conf: Config) -> Result<(), csv::Error> {
 }
 
 fn main() -> Result<(), csv::Error> {
-    let n = 10000;
+    let n = 100;
     let dtw_dist = 200;
-    let mut rest = RestMode {
-        rs: 100,
-        compression_ratio: 5,
-        spatial_filter: true,
-        error_point: 70,
-        dtw_band: 20,
-        k: 1,
-    };
+    let dp = DpMode {};
     run_config(Config {
         n,
-        mode: Mode::Rest(rest),
+        mode: Mode::DP(dp.clone()),
         max_dtw_dist: dtw_dist,
+        dtw_band: 80,
     })?;
-    rest.k = 2;
-    run_config(Config {
-        n,
-        mode: Mode::Rest(rest),
-        max_dtw_dist: dtw_dist,
-    })?;
-    rest.k = 3;
-    run_config(Config {
-        n,
-        mode: Mode::Rest(rest),
-        max_dtw_dist: dtw_dist,
-    })?;
-    rest.k = 5;
-    run_config(Config {
-        n,
-        mode: Mode::Rest(rest),
-        max_dtw_dist: dtw_dist,
-    })?;
-    rest.k = 7;
-    run_config(Config {
-        n,
-        mode: Mode::Rest(rest),
-        max_dtw_dist: dtw_dist,
-    })?;
+    //    run_config(Config {
+    //        n,
+    //        mode: Mode::DP(dp.clone()),
+    //        max_dtw_dist: dtw_dist,
+    //        dtw_band: 30,
+    //    })?;
+    //    run_config(Config {
+    //        n,
+    //        mode: Mode::DP(dp.clone()),
+    //        max_dtw_dist: dtw_dist,
+    //        dtw_band: 20,
+    //    })?;
+    //    run_config(Config {
+    //        n,
+    //        mode: Mode::DP(dp.clone()),
+    //        max_dtw_dist: dtw_dist,
+    //        dtw_band: 10,
+    //    })?;
     Ok(())
 }

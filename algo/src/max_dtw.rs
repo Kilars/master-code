@@ -10,15 +10,12 @@ pub fn max_dtw_band<'a>(
     let y_range = (0..ta.len())
         .map(|x| {
             let min = (x as f32 - band as f32).max(0.0) as usize;
-            let max = (x + band + 1).min(ta.len());
+            let max = (x + band + 1).min(tb.len());
             (min, max)
         })
         .collect::<Vec<_>>();
-    let x_marks_the_spot = if ta.len() < tb.len() {
-        (ta.len(), (ta.len() + band).min(tb.len()))
-    } else {
-        ((tb.len() + band).min(ta.len()), tb.len())
-    };
+
+    let x_marks_the_spot = (ta.len().min(tb.len() + band), tb.len().min(ta.len() + band));
 
     let foo = max_dtw(
         &ta[..x_marks_the_spot.0],

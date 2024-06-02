@@ -27,7 +27,6 @@ pub struct RestMode {
     pub rs: i32, //Reference set size in milliparts (thousandths)
     pub compression_ratio: i32,
     pub spatial_filter: bool,
-    pub dtw_band: usize,
     pub k: usize,
     pub error_point: i32,
 }
@@ -42,6 +41,7 @@ pub enum Mode {
 pub struct Config {
     pub n: i32,
     pub max_dtw_dist: i32,
+    pub dtw_band: usize,
     pub mode: Mode,
 }
 #[derive(Debug)]
@@ -105,7 +105,7 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                         reference_vec.as_slice(),
                         &t.as_slice(),
                         conf.max_dtw_dist as f64,
-                        rest_conf.dtw_band,
+                        conf.dtw_band,
                         rest_conf.k,
                         r_tree.as_ref(),
                         rest_conf.error_point as f64,
@@ -135,14 +135,22 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                                         mode_name.push_str(&rest_conf.error_point.to_string());
                                         // Convert error_point to String and append
                                     }
-                                    if rest_conf.dtw_band != 0 {
+                                    if conf.dtw_band != 0 {
                                         mode_name.push_str("-BND"); // Append "-BND"
-                                        mode_name.push_str(&rest_conf.dtw_band.to_string());
+                                        mode_name.push_str(&conf.dtw_band.to_string());
                                         // Convert dtw_band to String and append
                                     }
                                     mode_name
                                 }
-                                Mode::DP(_) => String::from("DP"),
+                                Mode::DP(_) => {
+                                    let mut mode_name = String::from("DP");
+                                    if conf.dtw_band != 0 {
+                                        mode_name.push_str("-BND"); // Append "-BND"
+                                        mode_name.push_str(&conf.dtw_band.to_string());
+                                        // Convert dtw_band to String and append
+                                    }
+                                    mode_name
+                                }
                             },
                             conf.max_dtw_dist,
                             i + 1,
@@ -184,7 +192,7 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                     final_reference_vectors.as_slice(),
                     &t.as_slice(),
                     conf.max_dtw_dist as f64,
-                    rest_conf.dtw_band,
+                    conf.dtw_band,
                     rest_conf.k,
                     r_tree.as_ref(),
                     rest_conf.error_point as f64,
@@ -213,14 +221,22 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                                     mode_name.push_str(&rest_conf.error_point.to_string());
                                     // Convert error_point to String and append
                                 }
-                                if rest_conf.dtw_band != 0 {
+                                if conf.dtw_band != 0 {
                                     mode_name.push_str("-BND"); // Append "-BND"
-                                    mode_name.push_str(&rest_conf.dtw_band.to_string());
+                                    mode_name.push_str(&conf.dtw_band.to_string());
                                     // Convert dtw_band to String and append
                                 }
                                 mode_name
                             }
-                            Mode::DP(_) => String::from("DP"),
+                            Mode::DP(_) => {
+                                let mut mode_name = String::from("DP");
+                                if conf.dtw_band != 0 {
+                                    mode_name.push_str("-BND"); // Append "-BND"
+                                    mode_name.push_str(&conf.dtw_band.to_string());
+                                    // Convert dtw_band to String and append
+                                }
+                                mode_name
+                            }
                         },
                         i + 1,
                         conf.max_dtw_dist,
@@ -264,8 +280,11 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
 
             let mut encoded_cr = Vec::new();
             n_trajectories.iter().enumerate().for_each(|(i, t)| {
-                let encoded_trajectory =
-                    douglas_peucker(t.as_slice(), conf.max_dtw_dist as f64 / 1000.0);
+                let encoded_trajectory = douglas_peucker(
+                    t.as_slice(),
+                    conf.max_dtw_dist as f64 / 1000.0,
+                    conf.dtw_band,
+                );
                 let cr = t.len() as f64 / encoded_trajectory.len() as f64;
                 if (i + 1) as i32 % (conf.n / 5) == 0 {
                     let avg_cr =
@@ -281,14 +300,22 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                                     mode_name.push_str(&rest_conf.error_point.to_string());
                                     // Convert error_point to String and append
                                 }
-                                if rest_conf.dtw_band != 0 {
+                                if conf.dtw_band != 0 {
                                     mode_name.push_str("-BND"); // Append "-BND"
-                                    mode_name.push_str(&rest_conf.dtw_band.to_string());
+                                    mode_name.push_str(&conf.dtw_band.to_string());
                                     // Convert dtw_band to String and append
                                 }
                                 mode_name
                             }
-                            Mode::DP(_) => String::from("DP"),
+                            Mode::DP(_) => {
+                                let mut mode_name = String::from("DP");
+                                if conf.dtw_band != 0 {
+                                    mode_name.push_str("-BND"); // Append "-BND"
+                                    mode_name.push_str(&conf.dtw_band.to_string());
+                                    // Convert dtw_band to String and append
+                                }
+                                mode_name
+                            }
                         },
                         i + 1,
                         conf.max_dtw_dist,
