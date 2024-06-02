@@ -52,45 +52,40 @@ fn run_config(conf: Config) -> Result<(), csv::Error> {
 }
 
 fn main() -> Result<(), csv::Error> {
-    let n = 100000;
+    let n = 10000;
     let dtw_dist = 200;
-    let dp = DpMode {};
-    let rest = RestMode {
-        rs: 100,
-        compression_ratio: 5,
-        spatial_filter: false,
-        dtw_band: 0,
-        error_point: 70,
-    };
-    let rest_band_sf_mode_70 = RestMode {
+    let mut rest = RestMode {
         rs: 100,
         compression_ratio: 5,
         spatial_filter: true,
-        dtw_band: 0,
         error_point: 70,
-    };
-    let rest_band_sf_mode = RestMode {
-        rs: 100,
-        compression_ratio: 5,
-        spatial_filter: true,
-        dtw_band: 10,
-        error_point: 30,
+        dtw_band: 20,
+        k: 1,
     };
     run_config(Config {
         n,
-        mode: Mode::DP(dp),
+        mode: Mode::Rest(rest),
         max_dtw_dist: dtw_dist,
     })?;
+    rest.k = 2;
     run_config(Config {
         n,
-        mode: Mode::Rest(rest_band_sf_mode),
+        mode: Mode::Rest(rest),
         max_dtw_dist: dtw_dist,
     })?;
+    rest.k = 3;
     run_config(Config {
         n,
-        mode: Mode::Rest(rest_band_sf_mode_70),
+        mode: Mode::Rest(rest),
         max_dtw_dist: dtw_dist,
     })?;
+    rest.k = 5;
+    run_config(Config {
+        n,
+        mode: Mode::Rest(rest),
+        max_dtw_dist: dtw_dist,
+    })?;
+    rest.k = 7;
     run_config(Config {
         n,
         mode: Mode::Rest(rest),

@@ -28,6 +28,7 @@ pub struct RestMode {
     pub compression_ratio: i32,
     pub spatial_filter: bool,
     pub dtw_band: usize,
+    pub k: usize,
     pub error_point: i32,
 }
 #[derive(Debug, Clone)]
@@ -105,6 +106,7 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                         &t.as_slice(),
                         conf.max_dtw_dist as f64,
                         rest_conf.dtw_band,
+                        rest_conf.k,
                         r_tree.as_ref(),
                         rest_conf.error_point as f64,
                     );
@@ -183,6 +185,7 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                     &t.as_slice(),
                     conf.max_dtw_dist as f64,
                     rest_conf.dtw_band,
+                    rest_conf.k,
                     r_tree.as_ref(),
                     rest_conf.error_point as f64,
                 );
@@ -225,7 +228,7 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                             "{:.2}",
                             ((rest_conf.rs as f32 / 1000.0) * conf.n as f32) as usize
                         ),
-                        final_reference_vectors.len(),
+                        rest_conf.k,
                         format!("{:.0}", begin.elapsed().as_secs_f64()),
                         format!("{:.2}", avg_cr),
                         format!("{:.2}", cr_set_inclusive),

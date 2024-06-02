@@ -75,6 +75,7 @@ pub fn encode<'a>(
     trajectory: &[Point],
     spatial_deviation: f64,
     band: usize,
+    k: usize,
     r_tree: Option<&RTree<PointWithIndexReference>>,
     spatial_filter_distance: f64,
 ) -> (EncodedTrajectory<'a>, (u64, u64, u64)) {
@@ -105,6 +106,7 @@ pub fn encode<'a>(
             candidate_vector.as_slice(),
             spatial_deviation / 1000.0,
             band,
+            k,
         ) {
             Some((new_last_index, mrt)) => {
                 last_indexed_point += new_last_index;
@@ -137,6 +139,7 @@ fn greedy_mrt_expand<'a>(
     reference_trajectories: &[&'a [Point]],
     max_deviation: f64,
     dtw_band: usize,
+    k: usize,
 ) -> Option<(usize, &'a [Point])> {
     let mut subtraj_mrt_map = HashMap::new();
 
@@ -194,7 +197,7 @@ fn greedy_mrt_expand<'a>(
                     .collect_vec()
                 })
                 .sorted_by_key(|(dist, _, _)| (*dist * 1000.0) as i32)
-                .take(3)
+                .take(k)
                 .map(|(_, s, e)| (s, e))
                 .collect();
         }
