@@ -43,46 +43,33 @@ titles = {
     'y': 'Runtime (hours)',
     'x': 'N',
 }
-plot_grouped_data(pd.read_csv('compression.csv'), 'mode', 'n', 'runtime', 'n_runtime.png', titles, format_1k, format_seconds_minutes)
+file_path = '../algo/out/intermediate.txt'
+plot_grouped_data(pd.read_csv(file_path), 'mode', 'n', 'seconds', 'n_runtime.png', titles, format_1k, format_seconds_minutes)
 plot_grouped_data(
-    pd.read_csv('compression.csv'),
+    pd.read_csv(file_path),
     'mode',
     'n',
     'tot_cr',
-    'n_compression.png',
+    'tot_compression.png',
     {
         'title': 'N over Compression Ratio',
-        'y': 'Compression Ratio',
+        'y': 'Set Inclusive Compression Ratio',
         'x': 'N',
     },
     format_1k,
     no_format,
 )
 plot_grouped_data(
-    pd.read_csv('set_size.csv'),
+    pd.read_csv(file_path),
     'mode',
     'n',
-    'set_size',
-    'n_set_size.png',
+    'avg_cr',
+    'avg_compression.png',
     {
-        'title': 'Sample Size over Set Size',
-        'y': 'Set Size',
-        'x': 'Sample Size',
+        'title': 'N over Compression Ratio',
+        'y': 'Average Compression Ratio',
+        'x': 'N',
     },
     format_1k,
-    format_1k,
-)
-plot_grouped_data(
-    pd.read_csv('set_size.csv'),
-    'mode',
-    'n',
-    'runtime',
-    'n_set_runtime.png',
-    {
-        'title': 'Set building sample size over Runtime',
-        'y': 'Runtime (hours)',
-        'x': 'Sample Size',
-    },
-    format_1k,
-    format_seconds_minutes,
+    no_format,
 )
