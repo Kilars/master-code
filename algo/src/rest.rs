@@ -197,7 +197,7 @@ fn greedy_mrt_expand<'a>(
                     .collect_vec()
                 })
                 .sorted_by_key(|(dist, _, _)| (*dist * 1000.0) as i32)
-                .take(k)
+                .take(if k != 0 { k } else { usize::MAX })
                 .map(|(_, s, e)| (s, e))
                 .collect();
         }

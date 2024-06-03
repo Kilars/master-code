@@ -61,7 +61,11 @@ pub fn cr_from_shape(shape: (u64, u64, u64)) -> f64 {
     (shape.0 as f64 * point_size)
         / ((shape.2 as f64 * point_size) + (shape.1 as f64 * reference_size))
 }
-pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv::Error> {
+pub fn rest_main(
+    conf: Config,
+    only_set: bool,
+    log_n: i32,
+) -> Result<PerformanceMetrics, csv::Error> {
     let mut set_size_file = std::fs::File::options()
         .create(true)
         .append(true)
@@ -182,7 +186,10 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                         }
                     }
 
-                    if (i + 1) as i32 % (conf.n / 5) == 0 {
+                    if (i + 1) as i32
+                        % ((((rest_conf.rs as f32 / 1000.0) * conf.n as f32) as i32) / 5)
+                        == 0
+                    {
                         let _file_write_res = write!(
                             set_size_file,
                             "{},{},{},{},{},{}\n",
@@ -261,7 +268,7 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                 references += shape.1;
                 raw_points += shape.2;
 
-                if (i + 1) as i32 % (conf.n / 5) == 0 {
+                if (i + 1) as i32 % (conf.n / log_n) == 0 {
                     let avg_cr = encoded_cr
                         .iter()
                         .map(|&(_, shape)| cr_from_shape(shape))
@@ -275,6 +282,9 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                         match conf.mode.clone() {
                             Mode::Rest(rest_conf) => {
                                 let mut mode_name = String::from("REST"); // Change to mutable String
+                                if !rest_conf.include_entire_trajectory {
+                                    mode_name.push_str("_EXCL");
+                                }
                                 if rest_conf.spatial_filter {
                                     mode_name.push_str("-SF"); // Use push_str to append
                                     mode_name.push_str(&rest_conf.error_point.to_string());
@@ -284,6 +294,10 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                                     mode_name.push_str("-BND"); // Append "-BND"
                                     mode_name.push_str(&conf.dtw_band.to_string());
                                     // Convert dtw_band to String and append
+                                }
+                                if rest_conf.k != 0 {
+                                    mode_name.push_str("-KNN");
+                                    mode_name.push_str(&rest_conf.k.to_string());
                                 }
                                 mode_name
                             }
@@ -345,7 +359,7 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                     conf.dtw_band,
                 );
                 let cr = t.len() as f64 / encoded_trajectory.len() as f64;
-                if (i + 1) as i32 % (conf.n / 5) == 0 {
+                if (i + 1) as i32 % (conf.n / log_n) == 0 {
                     let avg_cr =
                         encoded_cr.iter().map(|(_, cr)| cr).sum::<f64>() / encoded_cr.len() as f64;
                     let _file_write_res = write!(
@@ -354,6 +368,9 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                         match conf.mode.clone() {
                             Mode::Rest(rest_conf) => {
                                 let mut mode_name = String::from("REST"); // Change to mutable String
+                                if !rest_conf.include_entire_trajectory {
+                                    mode_name.push_str("_EXCL");
+                                }
                                 if rest_conf.spatial_filter {
                                     mode_name.push_str("-SF"); // Use push_str to append
                                     mode_name.push_str(&rest_conf.error_point.to_string());
@@ -363,6 +380,10 @@ pub fn rest_main(conf: Config, only_set: bool) -> Result<PerformanceMetrics, csv
                                     mode_name.push_str("-BND"); // Append "-BND"
                                     mode_name.push_str(&conf.dtw_band.to_string());
                                     // Convert dtw_band to String and append
+                                }
+                                if rest_conf.k != 0 {
+                                    mode_name.push_str("-KNN");
+                                    mode_name.push_str(&rest_conf.k.to_string());
                                 }
                                 mode_name
                             }
