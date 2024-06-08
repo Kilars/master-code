@@ -1,15 +1,28 @@
-use crate::max_dtw::max_dtw_band;
+use crate::max_dtw::{max_dtw, max_dtw_band};
 use crate::rest::Point;
 use append_only_vec::AppendOnlyVec;
 use itertools::Itertools;
+use std::collections::HashMap;
 
+fn dtw<'a>(
+    ta: &'a [Point],
+    tb: &'a [Point],
+    map: &mut HashMap<(&'a [Point], &'a [Point]), f64>,
+    band: usize,
+) -> f64 {
+    if band != 0 {
+        max_dtw_band(ta, tb, map, band)
+    } else {
+        max_dtw(ta, tb, map, None)
+    }
+}
 pub fn douglas_peucker(polyline: &[Point], epsilon: f64, band: usize) -> Vec<Point> {
     let mut indices: Vec<usize> = vec![0, polyline.len() - 1];
     let dp_vecs: AppendOnlyVec<Vec<Point>> = AppendOnlyVec::new();
     dp_vecs.push(indices.iter().map(|&i| polyline[i].clone()).collect_vec());
     let mut hash_map = std::collections::HashMap::new();
 
-    while max_dtw_band(
+    while dtw(
         &dp_vecs[dp_vecs.len() - 1].as_slice(),
         polyline,
         &mut hash_map,
