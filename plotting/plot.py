@@ -9,8 +9,8 @@ def format_1k(value):
     return f'{int(value/1000)}k' if value >= 1000 else str(int(value))
 def format_seconds_minutes(value):
     # Convert seconds to hours and format the number with two decimal places
-    hours = value  # Convert seconds to hours
-    return f'{hours:.0f}s'  # Format the result as a float with two decimals followed by 'h'
+    hours = value / 3600  # Convert seconds to hours
+    return f'{hours:.0f}h'  # Format the result as a float with two decimals followed by 'h'
 
 def plot_grouped_data(df, group_column, x_column, y_column, path, titles, x_format, y_format):
     grouped_data = df.groupby(group_column)
@@ -43,7 +43,7 @@ titles = {
     'y': 'Runtime (hours)',
     'x': 'N',
 }
-file_path = '../algo/out/intermediate.txt'
+file_path = 'tmp.csv'
 plot_grouped_data(pd.read_csv(file_path), 'mode', 'n', 'seconds', 'n_runtime.png', titles, format_1k, format_seconds_minutes)
 plot_grouped_data(
     pd.read_csv(file_path),
