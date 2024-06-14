@@ -39,9 +39,9 @@ def plot_grouped_data(df, group_column, x_column, y_column, path, titles, x_form
 
 # Apply the function with direct conversion of runtime to hours
 titles = {
-    'title': 'N over Runtime',
+    'title': 'Trajectories Compressed over Runtime',
     'y': 'Runtime (hours)',
-    'x': 'N',
+    'x': 'Trajectories Compressed',
 }
 file_path = 'tmp.csv'
 plot_grouped_data(pd.read_csv(file_path), 'mode', 'n', 'seconds', 'n_runtime.png', titles, format_1k, format_seconds_minutes)
@@ -52,9 +52,9 @@ plot_grouped_data(
     'tot_cr',
     'tot_compression.png',
     {
-        'title': 'N over Compression Ratio',
-        'y': 'Set Inclusive Compression Ratio',
-        'x': 'N',
+        'title': 'Trajectories Compressed over Total Compression Ratio',
+        'y': 'Total Compression Ratio',
+        'x': 'Trajectories Compressed',
     },
     format_1k,
     no_format,

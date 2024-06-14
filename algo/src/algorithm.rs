@@ -57,7 +57,7 @@ pub fn cr_from_shape(shape: (u64, u64, u64)) -> f64 {
     // i32 is 4 bytes, and x2 for lat and lng
     let point_size = 4.0 * 2.0;
     // 8 byte reference
-    let reference_size = 8.0;
+    let reference_size = 16.0;
     (shape.0 as f64 * point_size)
         / ((shape.2 as f64 * point_size) + (shape.1 as f64 * reference_size))
 }
@@ -253,7 +253,7 @@ pub fn rest_main(
                 .collect::<Result<Vec<_>, _>>()?;
             let mut encoded_cr = Vec::new();
             let final_reference_vectors = reference_set.iter().map(|t| t.as_slice()).collect_vec();
-            n_trajectories.iter().enumerate().for_each(|(i, t)| {
+            for (i, t) in n_trajectories.iter().enumerate() {
                 let (encoded_trajectory, shape) = encode(
                     final_reference_vectors.as_slice(),
                     &t.as_slice(),
@@ -322,8 +322,11 @@ pub fn rest_main(
                         format!("{:.2}", avg_cr),
                         format!("{:.2}", cr_set_inclusive),
                     );
+                    if begin.elapsed().as_secs_f64() > 60.0 * 60.0 * 20.0 {
+                        break;
+                    }
                 }
-            });
+            }
             let avg_cr = encoded_cr
                 .iter()
                 .map(|&(_, shape)| cr_from_shape(shape))
