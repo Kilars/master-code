@@ -23,7 +23,7 @@ fn main() -> Result<(), csv::Error> {
         k: 3,
         error_point: 70,
     };
-    let foo = vec![300, 400, 500, 600, 700, 800, 900, 1000];
+    let foo = vec![500, 600, 700, 800, 900, 1000];
     for f in &foo[1..] {
         rest_mode.rs = *f;
         run_config(Config {
